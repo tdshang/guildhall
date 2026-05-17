@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Guild Hall · Household Command Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+
+:root {
+  --tina:       #7B4FBF;
+  --tina-glow:  rgba(123,79,191,0.25);
+  --tina-soft:  rgba(123,79,191,0.1);
+  --mark:       #2E7D52;
+  --mark-glow:  rgba(46,125,82,0.25);
+  --mark-soft:  rgba(46,125,82,0.1);
+  --connor:     #C4501A;
+  --connor-glow:rgba(196,80,26,0.25);
+  --connor-soft:rgba(196,80,26,0.1);
+  --walker:     #1A6FA8;
+  --walker-glow:rgba(26,111,168,0.25);
+  --walker-soft:rgba(26,111,168,0.1);
+  --gabe:       #8A7320;
+  --gabe-glow:  rgba(138,115,32,0.25);
+  --gabe-soft:  rgba(138,115,32,0.1);
+  --bg:         #0e0d0b;
+  --surface:    #161410;
+  --card:       #1e1b16;
+  --border:     rgba(200,180,140,0.12);
+  --border-hi:  rgba(200,180,140,0.28);
+  --text:       #e8e0d0;
+  --text-dim:   #8a7f6e;
+  --text-faint: #4a4438;
+  --gold:       #c8a84a;
+  --gold-dim:   rgba(200,168,74,0.15);
+  --red:        #c0392b;
+  --red-soft:   rgba(192,57,43,0.15);
+  --success:    #27ae60;
+  --radius:     8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Crimson Text', Georgia, serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: 0.6;
+}
+
+/* SYNC STATUS */
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-faint); flex-shrink: 0;
+  transition: background 0.3s;
+}
+.sync-dot.synced  { background: var(--success); }
+.sync-dot.syncing { background: var(--gold); animation: pulse 1s infinite; }
+.sync-dot.error   { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.sync-label { font-size: 10px; color: var(--text-faint); font-family: 'Cinzel', serif; letter-spacing: 0.06em; }
+
+/* HEADER */
+.app-header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(14,13,11,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+}
+.header-inner {
+  max-width: 900px; margin: 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  height: 56px;
+}
+.app-logo {
+  font-family: 'Cinzel', serif;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 0.12em; color: var(--gold);
+  text-transform: uppercase; flex-shrink: 0;
+}
+.app-logo span { color: var(--text-dim); font-weight: 400; font-size: 11px; }
+.header-sync { display: flex; align-items: center; gap: 5px; margin-left: 8px; }
+.header-date {
+  margin-left: auto; font-size: 11px; color: var(--text-dim);
+  font-family: 'Cinzel', serif; letter-spacing: 0.06em; text-align: right;
+}
+
+/* NAV */
+.nav-scroll {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 56px; z-index: 99;
+}
+.nav-scroll::-webkit-scrollbar { display: none; }
+.nav-inner { display: flex; gap: 4px; padding: 8px 16px; width: max-content; min-width: 100%; }
+.nav-pill {
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 6px 16px; border-radius: 20px;
+  border: 1px solid var(--border); color: var(--text-dim); background: transparent;
+  cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
+}
+.nav-pill:hover { border-color: var(--border-hi); color: var(--text); }
+.nav-pill.active { color: white; border-color: transparent; }
+.nav-pill[data-person="tina"].active    { background: var(--tina);   box-shadow: 0 0 12px var(--tina-glow); }
+.nav-pill[data-person="mark"].active    { background: var(--mark);   box-shadow: 0 0 12px var(--mark-glow); }
+.nav-pill[data-person="connor"].active  { background: var(--connor); box-shadow: 0 0 12px var(--connor-glow); }
+.nav-pill[data-person="walker"].active  { background: var(--walker); box-shadow: 0 0 12px var(--walker-glow); }
+.nav-pill[data-person="gabe"].active    { background: var(--gabe);   box-shadow: 0 0 12px var(--gabe-glow); }
+.nav-pill[data-person="command"].active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
+/* LOADING */
+.loading-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 200; gap: 16px;
+}
+.loading-title { font-family: 'Cinzel', serif; font-size: 22px; color: var(--gold); letter-spacing: 0.1em; }
+.loading-sub { font-size: 13px; color: var(--text-dim); font-style: italic; }
+.spinner {
+  width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--gold); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* MAIN */
+.main { max-width: 900px; margin: 0 auto; padding: 20px 16px 80px; position: relative; z-index: 1; }
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+/* PERSON HERO */
+.person-hero {
+  border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+  position: relative; overflow: hidden; border: 1px solid var(--border);
+}
+.hero-name { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 700; letter-spacing: 0.05em; }
+.hero-role { font-size: 13px; color: var(--text-dim); margin-top: 2px; font-style: italic; }
+.hero-stats { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.stat-box {
+  background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 14px;
+  text-align: center; flex: 1; min-width: 60px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.stat-val { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; line-height: 1; }
+.stat-lbl { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+
+/* SECTION */
+.section { margin-bottom: 20px; }
+.section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.section-label { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
+.section-line { flex: 1; height: 1px; background: var(--border); }
+.section-count { font-family: 'Cinzel', serif; font-size: 10px; color: var(--text-faint); }
+.sub-label { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); margin: 12px 0 6px 4px; }
+
+/* TASK CARD */
+.task-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 6px;
+  transition: all 0.2s; cursor: pointer; user-select: none;
+}
+.task-card:hover { border-color: var(--border-hi); }
+.task-card.done { opacity: 0.5; background: rgba(30,27,22,0.5); }
+.task-inner { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.task-check {
+  width: 22px; height: 22px; border-radius: 5px; flex-shrink: 0;
+  border: 2px solid var(--border-hi); display: flex; align-items: center;
+  justify-content: center; transition: all 0.2s; font-size: 13px;
+}
+.task-card.done .task-text { text-decoration: line-through; color: var(--text-dim); }
+.task-text { flex: 1; font-size: 14px; line-height: 1.35; }
+
+/* NOTES */
+.notes-area { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.notes-label { font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px; }
+.notes-input { width: 100%; background: transparent; border: none; color: var(--text); font-family: 'Crimson Text', Georgia, serif; font-size: 14px; line-height: 1.5; resize: vertical; min-height: 70px; outline: none; }
+.notes-input::placeholder { color: var(--text-faint); }
+
+/* ALERT */
+.alert-card { background: var(--red-soft); border: 1px solid rgba(192,57,43,0.4); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+.alert-title { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #e74c3c; margin-bottom: 8px; }
+.mold-tasks .task-card { border-color: rgba(192,57,43,0.3); }
+
+/* COMMAND CENTER */
+.cmd-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 20px; }
+@media(min-width:500px){ .cmd-grid { grid-template-columns: repeat(3,1fr); } }
+@media(min-width:750px){ .cmd-grid { grid-template-columns: repeat(5,1fr); } }
+.cmd-person { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: all 0.2s; }
+.cmd-person:hover { transform: translateY(-2px); border-color: var(--border-hi); }
+.cmd-person-hd { padding: 10px 12px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: white; }
+.cmd-person-bd { padding: 10px 12px; }
+.cmd-progress-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); margin-bottom: 8px; overflow: hidden; }
+.cmd-progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.cmd-pct { font-family: 'Cinzel', serif; font-size: 18px; font-weight: 700; }
+.cmd-done-count { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+/* SLIP */
+.slip-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 6px; font-size: 13px; }
+
+/* RESET BTN */
+.reset-btn { background: rgba(192,57,43,0.15); border: 1px solid rgba(192,57,43,0.3); color: #e74c3c; border-radius: var(--radius); padding: 10px 18px; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+.reset-btn:hover { background: rgba(192,57,43,0.25); }
+
+.gold-divider { height: 1px; background: linear-gradient(90deg,transparent,var(--gold),transparent); margin: 20px 0; opacity: 0.3; }
+.empty-msg { text-align: center; color: var(--text-faint); font-style: italic; font-size: 14px; padding: 20px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-title">Guild Hall</div>
+  <div class="loading-sub" id="loadingMsg">Connecting to household...</div>
+</div>
+
+<div class="app-header">
+  <div class="header-inner">
+    <div class="app-logo">Guild Hall <span>· Command Center</span></div>
+    <div class="header-sync">
+      <div class="sync-dot" id="syncDot"></div>
+      <span class="sync-label" id="syncLabel">connecting</span>
+    </div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+</div>
+
+<div class="nav-scroll">
+  <div class="nav-inner">
+    <button class="nav-pill active" data-person="tina"    onclick="switchView('tina')">Tina</button>
+    <button class="nav-pill"        data-person="mark"    onclick="switchView('mark')">Mark</button>
+    <button class="nav-pill"        data-person="connor"  onclick="switchView('connor')">Connor</button>
+    <button class="nav-pill"        data-person="walker"  onclick="switchView('walker')">Walker</button>
+    <button class="nav-pill"        data-person="gabe"    onclick="switchView('gabe')">Gabe</button>
+    <button class="nav-pill"        data-person="command" onclick="switchView('command')">⚔ Command</button>
+  </div>
+</div>
+
+<div class="main" id="mainContent"><div style="padding:40px;text-align:center;color:var(--text-dim)">Loading...</div></div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ── FIREBASE CONFIG ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDQa6TYIjHwtB-hjO5Z1BPCdC5skDtP9z8",
+  authDomain: "guild-hall-76335.firebaseapp.com",
+  projectId: "guild-hall-76335",
+  storageBucket: "guild-hall-76335.firebasestorage.app",
+  messagingSenderId: "243084312308",
+  appId: "1:243084312308:web:67712fafbf8e671ba728a1"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── SYNC STATUS ──────────────────────────────────────────
+function setSyncStatus(status) {
+  const dot   = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  dot.className   = 'sync-dot ' + status;
+  label.textContent = status === 'synced' ? 'live' : status === 'syncing' ? 'saving...' : 'offline';
+}
+
+// ── DATE HELPERS ─────────────────────────────────────────
+function dateToKey(d) { return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function todayKey()     { return dateToKey(new Date()); }
+function yesterdayKey() { const d=new Date(); d.setDate(d.getDate()-1); return dateToKey(d); }
+function weekKey() {
+  const d=new Date(), mon=new Date(d);
+  mon.setDate(d.getDate()-((d.getDay()+6)%7));
+  return dateToKey(mon);
+}
+function monthKey() { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}`; }
+
+// ── ROLLOVER IDS ─────────────────────────────────────────
+const ROLLOVER_IDS = new Set([
+  'ce1','ce6','ce7',
+  'wm5','wm6','wmd1','we1','we2','we3','we5','we6',
+  'gd1','gd2',
+  'mpd1','mpd2','tmo2',
+]);
+
+// ── TASK DATA ────────────────────────────────────────────
+const PEOPLE = {
+  tina: {
+    name:'Tina', role:'Systems · Laundry · Master Spaces · Oversight',
+    color:'var(--tina)', glow:'var(--tina-glow)', soft:'var(--tina-soft)',
+    tasks:{
+      daily_morning:[
+        {id:'tm1',text:'Start a load of laundry'},
+        {id:'tm2',text:'Paper/mail off counters — one pile, one place'},
+        {id:'tm3',text:'Master bathroom quick wipe: sink + toilet'},
+        {id:'tm4',text:'Check boys completed yesterday\'s tasks'},
+      ],
+      daily_evening:[
+        {id:'te1',text:'Move laundry forward (wash → dry → basket)'},
+        {id:'te2',text:'15-minute clutter reset — timer, one zone only'},
+        {id:'te3',text:'Kitchen island cleared before bed'},
+        {id:'te4',text:'Confirm nightly non-negotiables happened'},
+        {id:'te5',text:'Master bath: fan on + door open if shower used'},
+      ],
+      mold:[
+        {id:'tmo1',text:'Spray undiluted vinegar on master bath ceiling — do not wipe, let dry (every 3–4 days)'},
+        {id:'tmo2',text:'Fan ON + door OPEN after every shower — no exceptions'},
+        {id:'tmo3',text:'No towels/fabric stored in master bathroom'},
+      ],
+      weekly:[
+        {id:'tw1',text:'Monday: Laundry full catch-up',day:'Mon'},
+        {id:'tw2',text:'Tuesday: Kitchen deeper pass + pantry check',day:'Tue'},
+        {id:'tw3',text:'Wednesday: Vinegar spray master bath ceiling',day:'Wed'},
+        {id:'tw4',text:'Wednesday: Later basket sort',day:'Wed'},
+        {id:'tw5',text:'Thursday: Clean master bathroom (toilet, sink, mirror, floor)',day:'Thu'},
+        {id:'tw6',text:'Friday: Donation bag check + fridge check',day:'Fri'},
+        {id:'tw7',text:'Saturday: Declutter target zone',day:'Sat'},
+        {id:'tw8',text:'Saturday: Kitchen full reset',day:'Sat'},
+        {id:'tw9',text:'Sunday: Prep for week + tea station reset',day:'Sun'},
+        {id:'tw10',text:'Sunday: Command center review with Mark',day:'Sun'},
+      ],
+      monthly:[
+        {id:'tmo_1',text:'Pantry purge — toss expired items'},
+        {id:'tmo_2',text:'Organize tea collection'},
+        {id:'tmo_3',text:'Decor declutter pass'},
+        {id:'tmo_4',text:'Donation run'},
+        {id:'tmo_5',text:'Master bedroom deep reset'},
+        {id:'tmo_6',text:'Dried herbs + hanging décor check'},
+      ]
+    }
+  },
+  mark: {
+    name:'Mark', role:'Infrastructure · Maintenance · Ventilation · Garage',
+    color:'var(--mark)', glow:'var(--mark-glow)', soft:'var(--mark-soft)',
+    tasks:{
+      daily_asable:[
+        {id:'mad1',text:'Kitchen reset support if able'},
+        {id:'mad2',text:'Tools and projects contained to workspace'},
+        {id:'mad3',text:'Trash — take out if at capacity'},
+      ],
+      daily_priority:[
+        {id:'mpd1',text:'Master bath fan on after showers'},
+        {id:'mpd2',text:'Master bath door open after showers'},
+        {id:'mpd3',text:'Flag anything breaking down or urgent'},
+      ],
+      weekly:[
+        {id:'mw1',text:'Thursday: Moisture check master bath',day:'Thu'},
+        {id:'mw2',text:'Thursday: Ventilation check whole house',day:'Thu'},
+        {id:'mw3',text:'Saturday: Garage/shop progress',day:'Sat'},
+        {id:'mw4',text:'Saturday: Maintenance fixes',day:'Sat'},
+        {id:'mw5',text:'Saturday: Dump/donation run if needed',day:'Sat'},
+        {id:'mw6',text:'Sunday: Command center review with Tina',day:'Sun'},
+        {id:'mw7',text:'Sunday: Note what slipped + adjust',day:'Sun'},
+      ],
+      monthly:[
+        {id:'mmo1',text:'HVAC filter check/change'},
+        {id:'mmo2',text:'Air purifier filter check'},
+        {id:'mmo3',text:'Vent and fan cleaning — all rooms'},
+        {id:'mmo4',text:'Garage/shop deep reset'},
+        {id:'mmo5',text:'Exterior check: gutters, drainage'},
+      ]
+    }
+  },
+  connor: {
+    name:'Connor', role:'Dogs · Dishes · Kitchen Evening Reset · Bedroom · Boys\' Bathroom',
+    color:'var(--connor)', glow:'var(--connor-glow)', soft:'var(--connor-soft)',
+    tasks:{
+      daily_morning:[
+        {id:'cm1',text:'Trash out of room'},
+        {id:'cm2',text:'Dishes/cups to kitchen'},
+        {id:'cm3',text:'Dirty clothes in hamper'},
+        {id:'cm4',text:'Bed straightened'},
+      ],
+      daily_evening:[
+        {id:'ce1',text:'Hand wash ALL dishes — fully washed, left to dry'},
+        {id:'ce2',text:'Wipe counters'},
+        {id:'ce3',text:'Wipe stove'},
+        {id:'ce4',text:'Clear and wipe sink'},
+        {id:'ce6',text:'Replace hearth dog litter pad (daily — no exceptions)'},
+        {id:'ce7',text:'Clean all dog litter areas'},
+        {id:'ce8',text:'Rubber broom bedroom carpet'},
+        {id:'ce9',text:'Put clean clothes away'},
+        {id:'ce10',text:'Dog enrichment/play 15–20 min'},
+        {id:'ce11',text:'Quick dog brush'},
+      ],
+      weekly:[
+        {id:'cw1',text:'Monday: Wash sheets + put laundry away',day:'Mon'},
+        {id:'cw2',text:'Tuesday: Dust room + clean windowsills',day:'Tue'},
+        {id:'cw3',text:'Wednesday: Empty house trash + replace bags',day:'Wed'},
+        {id:'cw4',text:'Thursday: Boys\' bathroom with Walker (toilet, counter, mirror, floor, tub)',day:'Thu'},
+        {id:'cw5',text:'Friday: Groom + deshed dogs',day:'Fri'},
+        {id:'cw6',text:'Saturday: Mop whole house',day:'Sat'},
+        {id:'cw7',text:'Saturday: Deep vacuum bedroom',day:'Sat'},
+        {id:'cw8',text:'Saturday: Replace cage dog litter pad + full litter change',day:'Sat'},
+        {id:'cw9',text:'Sunday: Pull unworn clothes + donation bag check',day:'Sun'},
+      ],
+      monthly:[
+        {id:'cmo1',text:'Vacuum under bed'},
+        {id:'cmo2',text:'Deep clean bedroom walls and baseboards'},
+        {id:'cmo3',text:'Wash curtains if needed'},
+        {id:'cmo4',text:'Deep clean all dog areas'},
+      ]
+    }
+  },
+  walker: {
+    name:'Walker', role:'Cats · Both Cat Litters · Floors · Kitchen Assist · Feeding Stations',
+    color:'var(--walker)', glow:'var(--walker-glow)', soft:'var(--walker-soft)',
+    tasks:{
+      daily_morning:[
+        {id:'wm1',text:'Trash out of room'},
+        {id:'wm2',text:'Dishes/cups to kitchen'},
+        {id:'wm3',text:'Dirty clothes in hamper'},
+        {id:'wm4',text:'Bed straightened'},
+        {id:'wm5',text:'Feed and water dog in room'},
+        {id:'wm6',text:'Scoop both cat litter boxes (morning scoop)'},
+        {id:'wm7',text:'Check and replace dog litter pad in room if needed'},
+      ],
+      daily_midday:[
+        {id:'wmd1',text:'Scoop both cat litter boxes (midday scoop)'},
+      ],
+      daily_evening:[
+        {id:'we1',text:'Scoop both cat litter boxes (evening scoop)'},
+        {id:'we2',text:'Sweep kitchen floor'},
+        {id:'we3',text:'Sweep main path floors'},
+        {id:'we4',text:'Sweep bedroom'},
+        {id:'we5',text:'Clean pet feeding area — wipe mat, remove scatter'},
+        {id:'we6',text:'Dry all dishes Connor washed + put away completely'},
+        {id:'we7',text:'Put clean clothes away'},
+        {id:'we8',text:'Pet enrichment/play 15–20 min'},
+        {id:'we9',text:'Quick pet brush'},
+      ],
+      weekly:[
+        {id:'ww1',text:'Monday: Wash sheets + put laundry away',day:'Mon'},
+        {id:'ww2',text:'Tuesday: Dust room + clean windowsills',day:'Tue'},
+        {id:'ww3',text:'Wednesday: Empty house trash + replace bags',day:'Wed'},
+        {id:'ww4',text:'Thursday: Boys\' bathroom with Connor (toilet, counter, mirror, floor, tub)',day:'Thu'},
+        {id:'ww5',text:'Friday: Wash all pet bowls + clean litter mats',day:'Fri'},
+        {id:'ww6',text:'Saturday: Deep clean litter areas',day:'Sat'},
+        {id:'ww7',text:'Saturday: Full change both cat litter boxes (wipe + refill)',day:'Sat'},
+        {id:'ww8',text:'Sunday: Pull unworn clothes + donation bag check',day:'Sun'},
+      ],
+      monthly:[
+        {id:'wmo1',text:'Vacuum all furniture'},
+        {id:'wmo2',text:'Deep clean bedroom walls and baseboards'},
+        {id:'wmo3',text:'Wash curtains if needed'},
+        {id:'wmo4',text:'Deep clean entire feeding area'},
+      ]
+    }
+  },
+  gabe: {
+    name:'Gabe', role:'Basement · Downstairs Cat · Trash to Road',
+    color:'var(--gabe)', glow:'var(--gabe-glow)', soft:'var(--gabe-soft)',
+    tasks:{
+      daily:[
+        {id:'gd1',text:'Clean downstairs cat litter'},
+        {id:'gd2',text:'Feed and water downstairs cat'},
+        {id:'gd3',text:'Remove trash and dishes from your space'},
+        {id:'gd4',text:'Keep pathways clear — nothing blocking movement'},
+        {id:'gd5',text:'Reset workspace before bed'},
+      ],
+      weekly:[
+        {id:'gw1',text:'Wednesday: Trash to road — every week, no exceptions',day:'Wed'},
+        {id:'gw2',text:'Saturday: Basement reset',day:'Sat'},
+        {id:'gw3',text:'Saturday: Shared area help — check in with Tina',day:'Sat'},
+        {id:'gw4',text:'Sunday: Wash bedding',day:'Sun'},
+        {id:'gw5',text:'Sunday: Vacuum and sweep basement',day:'Sun'},
+      ],
+      monthly:[
+        {id:'gmo1',text:'Deep clean workstation'},
+        {id:'gmo2',text:'Organize active projects'},
+        {id:'gmo3',text:'Donation and trash pass through basement'},
+      ]
+    }
+  }
+};
+
+// ── IN-MEMORY STATE (populated from Firestore) ───────────
+// state[person][scope][dateKey][taskId] = true/false
+const state = {};
+// notes[person] = string
+const notes = {};
+// listeners to unsubscribe
+const listeners = [];
+
+function ensurePath(person, scope, key) {
+  if (!state[person]) state[person] = {};
+  if (!state[person][scope]) state[person][scope] = {};
+  if (!state[person][scope][key]) state[person][scope][key] = {};
+}
+
+// ── FIRESTORE PATHS ──────────────────────────────────────
+function checkDocPath(person, scope, key) {
+  return `checks/${person}/${scope}/${key}`;
+}
+function noteDocPath(person) {
+  return `notes/${person}`;
+}
+
+// ── READ HELPERS ─────────────────────────────────────────
+function getChecked(person, scope) {
+  const key = scope==='daily' ? todayKey() : scope==='weekly' ? weekKey() : monthKey();
+  return state[person]?.[scope]?.[key] || {};
+}
+
+function getYesterdayChecked(person) {
+  return state[person]?.daily?.[yesterdayKey()] || {};
+}
+
+function getRollovers(person) {
+  const yChecked = getYesterdayChecked(person);
+  const tChecked = getChecked(person, 'daily');
+  const rolledOver = new Set();
+  const allDaily = getAllDailyTasks(person);
+  allDaily.forEach(t => {
+    if (ROLLOVER_IDS.has(t.id) && !yChecked[t.id] && !tChecked[t.id]) rolledOver.add(t.id);
+  });
+  return rolledOver;
+}
+
+function getMissedYesterday(person) {
+  const yChecked = getYesterdayChecked(person);
+  return getAllDailyTasks(person).filter(t => !yChecked[t.id]);
+}
+
+function getAllDailyTasks(person) {
+  const t = PEOPLE[person].tasks;
+  return [].concat(...Object.entries(t).filter(([k])=>k.startsWith('daily')).map(([,v])=>v));
+}
+
+function getNote(person) { return notes[person] || ''; }
+
+// ── WRITE TO FIRESTORE ───────────────────────────────────
+async function toggleTask(person, scope, taskId) {
+  const key = scope==='daily' ? todayKey() : scope==='weekly' ? weekKey() : monthKey();
+  ensurePath(person, scope, key);
+  const current = state[person][scope][key][taskId] || false;
+  state[person][scope][key][taskId] = !current;
+  setSyncStatus('syncing');
+  try {
+    const path = checkDocPath(person, scope, key);
+    await setDoc(doc(db, path), state[person][scope][key]);
+    setSyncStatus('synced');
+  } catch(e) {
+    console.error(e);
+    setSyncStatus('error');
+  }
+  refreshView();
+}
+
+let noteTimer = null;
+async function saveNote(person, text) {
+  notes[person] = text;
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(async () => {
+    setSyncStatus('syncing');
+    try {
+      await setDoc(doc(db, noteDocPath(person)), { text, updated: Date.now() });
+      setSyncStatus('synced');
+    } catch(e) { setSyncStatus('error'); }
+  }, 800);
+}
+
+async function resetScope(scope) {
+  if (!confirm(`Reset all ${scope} checkboxes for everyone?`)) return;
+  const key = scope==='daily' ? todayKey() : weekKey();
+  setSyncStatus('syncing');
+  try {
+    for (const pid of Object.keys(PEOPLE)) {
+      ensurePath(pid, scope, key);
+      state[pid][scope][key] = {};
+      await setDoc(doc(db, checkDocPath(pid, scope, key)), {});
+    }
+    setSyncStatus('synced');
+    refreshView();
+  } catch(e) { setSyncStatus('error'); }
+}
+
+// ── REAL-TIME LISTENERS ──────────────────────────────────
+function subscribeToAll() {
+  const scopes = [
+    { scope:'daily', key: todayKey() },
+    { scope:'daily', key: yesterdayKey() },
+    { scope:'weekly', key: weekKey() },
+    { scope:'monthly', key: monthKey() },
+  ];
+
+  Object.keys(PEOPLE).forEach(pid => {
+    // Task checks
+    scopes.forEach(({ scope, key }) => {
+      const ref = doc(db, checkDocPath(pid, scope, key));
+      const unsub = onSnapshot(ref, snap => {
+        ensurePath(pid, scope, key);
+        state[pid][scope][key] = snap.exists() ? snap.data() : {};
+        setSyncStatus('synced');
+        if (currentView === pid || currentView === 'command') refreshView();
+      }, err => { console.error(err); setSyncStatus('error'); });
+      listeners.push(unsub);
+    });
+
+    // Notes
+    const noteRef = doc(db, noteDocPath(pid));
+    const noteUnsub = onSnapshot(noteRef, snap => {
+      notes[pid] = snap.exists() ? (snap.data().text || '') : '';
+      if (currentView === pid || currentView === 'command') refreshView();
+    });
+    listeners.push(noteUnsub);
+  });
+}
+
+// ── STATS ────────────────────────────────────────────────
+function totalForPerson(person) {
+  const dailyTasks = getAllDailyTasks(person);
+  const weeklyTasks = PEOPLE[person].tasks.weekly || [];
+  let total=0, done=0;
+  dailyTasks.forEach(t => { total++; if(getChecked(person,'daily')[t.id]) done++; });
+  weeklyTasks.forEach(t => { total++; if(getChecked(person,'weekly')[t.id]) done++; });
+  return { total, done, pct: total ? Math.round(done/total*100) : 0 };
+}
+
+function countDone(person, scope, tasks) {
+  const checked = getChecked(person, scope);
+  return tasks.filter(t => checked[t.id]).length;
+}
+
+// ── RENDER ───────────────────────────────────────────────
+function taskList(person, scope, tasks, sublabel) {
+  const checked  = getChecked(person, scope);
+  const rollovers = scope==='daily' ? getRollovers(person) : new Set();
+  let html = '';
+  if (sublabel) html += `<div class="sub-label">${sublabel}</div>`;
+  tasks.forEach(t => {
+    const done = !!checked[t.id];
+    const isRollover = rollovers.has(t.id);
+    const p = PEOPLE[person];
+    const checkStyle = done
+      ? `background:${p.color};border-color:${p.color};box-shadow:0 0 8px ${p.glow}`
+      : isRollover ? `border-color:#e74c3c;box-shadow:0 0 6px rgba(231,76,60,0.35)` : '';
+    const badge = isRollover && !done
+      ? `<span style="font-family:'Cinzel',serif;font-size:9px;color:#e74c3c;background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.3);border-radius:10px;padding:1px 7px;flex-shrink:0">missed yesterday</span>`
+      : '';
+    const cardExtra = isRollover && !done ? 'border-color:rgba(231,76,60,0.35)' : '';
+    html += `
+      <div class="task-card${done?' done':''}" style="${cardExtra}" onclick="window._toggle('${person}','${scope}','${t.id}')">
+        <div class="task-inner">
+          <div class="task-check" style="${checkStyle}">${done?'✓':''}</div>
+          <div class="task-text">${t.text}</div>
+          ${badge}
+        </div>
+      </div>`;
+  });
+  return html;
+}
+
+function sectionWrap(label, content, count) {
+  return `<div class="section">
+    <div class="section-header">
+      <div class="section-label">${label}</div>
+      <div class="section-line"></div>
+      ${count!==undefined?`<div class="section-count">${count}</div>`:''}
+    </div>${content}</div>`;
+}
+
+function renderPerson(person) {
+  const p = PEOPLE[person];
+  const t = p.tasks;
+  const stats = totalForPerson(person);
+  const dailyTasks = getAllDailyTasks(person);
+  const dailyDone = countDone(person,'daily',dailyTasks);
+  const rollovers = getRollovers(person);
+
+  let body = `
+    <div class="person-hero" style="background:linear-gradient(135deg,${p.soft},transparent);border-color:${p.glow}">
+      <div class="hero-name" style="color:${p.color}">${p.name}</div>
+      <div class="hero-role">${p.role}</div>
+      <div class="hero-stats">
+        <div class="stat-box"><div class="stat-val" style="color:${p.color}">${dailyDone}</div><div class="stat-lbl">Done Today</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:${p.color}">${dailyTasks.length-dailyDone}</div><div class="stat-lbl">Remaining</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:${rollovers.size>0?'#e74c3c':p.color}">${rollovers.size}</div><div class="stat-lbl">Rolled Over</div></div>
+        <div class="stat-box"><div class="stat-val" style="color:${p.color}">${stats.pct}%</div><div class="stat-lbl">Week</div></div>
+      </div>
+    </div>`;
+
+  if (rollovers.size > 0) {
+    const names = dailyTasks.filter(t=>rollovers.has(t.id)).map(t=>t.text.split('—')[0].trim()).join(', ');
+    body += `<div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.35);border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#e74c3c;margin-bottom:5px">⚠ ${rollovers.size} task${rollovers.size>1?'s':''} rolled over from yesterday</div>
+      <div style="font-size:12px;color:var(--text-dim)">${names}</div></div>`;
+  }
+
+  if (person==='tina' && t.mold) {
+    body += `<div class="alert-card"><div class="alert-title">⚠ Active Mold Protocol — Master Bathroom</div><div class="mold-tasks">${taskList(person,'daily',t.mold)}</div></div>`;
+  }
+
+  if (t.daily_morning)  body += sectionWrap('Morning',          taskList(person,'daily',t.daily_morning));
+  if (t.daily_midday)   body += sectionWrap('Midday',           taskList(person,'daily',t.daily_midday));
+  if (t.daily_evening)  body += sectionWrap('Evening',          taskList(person,'daily',t.daily_evening));
+  if (t.daily_asable)   body += sectionWrap('Daily — As Able',  taskList(person,'daily',t.daily_asable));
+  if (t.daily_priority) body += sectionWrap('Priority Watch',   taskList(person,'daily',t.daily_priority));
+  if (t.daily)          body += sectionWrap('Daily',            taskList(person,'daily',t.daily));
+
+  if (t.weekly?.length) {
+    const wd = countDone(person,'weekly',t.weekly);
+    body += sectionWrap('Weekly Tasks', taskList(person,'weekly',t.weekly), `${wd}/${t.weekly.length}`);
+  }
+  if (t.monthly?.length) {
+    const md = countDone(person,'monthly',t.monthly);
+    body += sectionWrap('Monthly Tasks', taskList(person,'monthly',t.monthly), `${md}/${t.monthly.length}`);
+  }
+
+  body += `<div class="section">
+    <div class="section-header"><div class="section-label">Notes</div><div class="section-line"></div></div>
+    <div class="notes-area">
+      <div class="notes-label">Flag anything for Tina + Mark</div>
+      <textarea class="notes-input" placeholder="Anything to flag? Tap to type..."
+        oninput="window._note('${person}',this.value)">${getNote(person)}</textarea>
+    </div></div>`;
+  return body;
+}
+
+function renderCommand() {
+  const people = Object.keys(PEOPLE);
+  let html = `
+    <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--gold);margin-bottom:4px">⚔ Command Center</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;font-style:italic">Tina + Mark · Live Sync · All Devices</div>
+    <div class="cmd-grid">`;
+
+  people.forEach(pid => {
+    const p = PEOPLE[pid];
+    const stats = totalForPerson(pid);
+    const rollovers = getRollovers(pid);
+    const missed = getMissedYesterday(pid);
+    const otherMissed = missed.filter(t=>!ROLLOVER_IDS.has(t.id));
+    const hasNote = !!getNote(pid).trim();
+    html += `
+      <div class="cmd-person" onclick="switchView('${pid}')">
+        <div class="cmd-person-hd" style="background:${p.color}">${p.name}</div>
+        <div class="cmd-person-bd">
+          <div class="cmd-progress-bar"><div class="cmd-progress-fill" style="width:${stats.pct}%;background:${p.color}"></div></div>
+          <div class="cmd-pct" style="color:${p.color}">${stats.pct}%</div>
+          <div class="cmd-done-count">${stats.done}/${stats.total} tasks</div>
+          ${rollovers.size>0?`<div style="font-size:11px;color:#e74c3c;margin-top:4px">⚠ ${rollovers.size} rolled over</div>`:''}
+          ${otherMissed.length>0?`<div style="font-size:11px;color:var(--text-faint);margin-top:2px">○ ${otherMissed.length} missed yesterday</div>`:''}
+          ${hasNote?`<div style="font-size:11px;color:var(--gold);margin-top:2px">📝 has note</div>`:''}
+        </div>
+      </div>`;
+  });
+  html += `</div><div class="gold-divider"></div>`;
+
+  // Missed detail
+  html += `<div class="section">
+    <div class="section-header"><div class="section-label">Missed Yesterday — Detail</div><div class="section-line"></div></div>
+    <div style="font-size:12px;color:var(--text-faint);margin-bottom:10px;font-style:italic">Rolled-over items appear on each person's list. Everything else is visible here only.</div>`;
+  let anyMissed = false;
+  people.forEach(pid => {
+    const missed = getMissedYesterday(pid);
+    if (!missed.length) return;
+    anyMissed = true;
+    const p = PEOPLE[pid];
+    const critical = missed.filter(t=>ROLLOVER_IDS.has(t.id));
+    const other    = missed.filter(t=>!ROLLOVER_IDS.has(t.id));
+    html += `<div class="slip-item">
+      <strong style="color:${p.color}">${p.name}</strong>
+      ${critical.length?`<div style="margin-top:5px;font-size:12px;color:#e74c3c">Critical (rolled over): ${critical.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
+      ${other.length?`<div style="margin-top:3px;font-size:12px;color:var(--text-dim)">Other missed: ${other.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
+    </div>`;
+  });
+  if (!anyMissed) html += `<div class="empty-msg">Nothing missed yesterday. 🏆</div>`;
+  html += `</div>`;
+
+  // Notes
+  html += `<div class="gold-divider"></div><div class="section">
+    <div class="section-header"><div class="section-label">Active Notes from Household</div><div class="section-line"></div></div>`;
+  let anyNotes = false;
+  people.forEach(pid => {
+    const note = getNote(pid);
+    if (!note.trim()) return;
+    anyNotes = true;
+    html += `<div class="slip-item"><strong style="color:${PEOPLE[pid].color}">${PEOPLE[pid].name}</strong><div style="margin-top:4px;color:var(--text-dim)">${note}</div></div>`;
+  });
+  if (!anyNotes) html += `<div class="empty-msg">No notes from the household today.</div>`;
+  html += `</div>`;
+
+  // Minimum viable
+  html += `<div class="gold-divider"></div><div class="section">
+    <div class="section-header"><div class="section-label">Minimum Viable — Hard Week Standard</div><div class="section-line"></div></div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:10px;font-style:italic">If these are done, the house is functioning. That is enough.</div>`;
+  const mvs = [
+    {id:'mvs1',text:'All animals have clean water'},
+    {id:'mvs2',text:'Both cat litters scooped 3x'},
+    {id:'mvs3',text:'Hearth dog litter pad replaced'},
+    {id:'mvs4',text:'Trash removed'},
+    {id:'mvs5',text:'Dishes washed + dried + put away'},
+    {id:'mvs6',text:'One load of laundry moved'},
+    {id:'mvs7',text:'Main floors swept'},
+    {id:'mvs8',text:'Bathrooms ventilated'},
+  ];
+  html += taskList('tina','daily',mvs);
+  html += `</div>`;
+
+  // Sunday review
+  html += `<div class="gold-divider"></div><div class="section">
+    <div class="section-header"><div class="section-label">Sunday Review Questions</div><div class="section-line"></div></div>`;
+  const review = [
+    {id:'rv1',text:'What consistently didn\'t happen this week?'},
+    {id:'rv2',text:'Is the task unclear or is it a capacity issue?'},
+    {id:'rv3',text:'Does anything need to be reassigned or simplified?'},
+    {id:'rv4',text:'What one thing made the biggest difference?'},
+    {id:'rv5',text:'Mold protocol still running? Fan habit holding?'},
+    {id:'rv6',text:'Litter schedule on track? No misses?'},
+  ];
+  html += taskList('mark','weekly',review);
+  html += `</div>`;
+
+  // Reset
+  html += `<div class="gold-divider"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="reset-btn" onclick="window._reset('daily')">Reset Today's Checks</button>
+      <button class="reset-btn" onclick="window._reset('weekly')">Reset This Week</button>
+      <div style="font-size:12px;color:var(--text-faint);font-style:italic">Daily resets automatically at midnight. Use Sunday to reset weekly.</div>
+    </div>`;
+
+  return html;
+}
+
+// ── ROUTING ──────────────────────────────────────────────
+let currentView = 'tina';
+
+window.switchView = function(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-pill').forEach(b => b.classList.toggle('active', b.dataset.person===view));
+  refreshView();
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+
+function refreshView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = currentView==='command' ? renderCommand() : renderPerson(currentView);
+}
+
+// Expose to inline onclick
+window._toggle = toggleTask;
+window._note   = saveNote;
+window._reset  = resetScope;
+
+// ── DATE ─────────────────────────────────────────────────
+function updateDate() {
+  const d = new Date();
+  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('headerDate').innerHTML = `${days[d.getDay()]}<br>${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+// ── INIT ─────────────────────────────────────────────────
+async function init() {
+  document.getElementById('loadingMsg').textContent = 'Connecting to household...';
+  setSyncStatus('syncing');
+  try {
+    // Subscribe to real-time updates
+    subscribeToAll();
+    // Small delay to let first snapshot arrive
+    await new Promise(r => setTimeout(r, 1200));
+    document.getElementById('loadingScreen').style.display = 'none';
+    updateDate();
+    refreshView();
+    setSyncStatus('synced');
+  } catch(e) {
+    document.getElementById('loadingMsg').textContent = 'Connection failed. Check internet and reload.';
+    setSyncStatus('error');
+  }
+}
+
+init();
+updateDate();
+setInterval(updateDate, 60000);
+</script>
+</body>
+</html>
