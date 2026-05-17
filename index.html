@@ -72,22 +72,37 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 .stat-val{font-family:'Cinzel',serif;font-size:18px;font-weight:700;line-height:1}
 .stat-lbl{font-size:8px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;margin-top:2px}
 
-.sec-head{display:flex;align-items:center;gap:8px;margin:16px 0 8px}
-.sec-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap}
-.sec-line{flex:1;height:1px;background:var(--border)}
+.sec-head{display:flex;align-items:center;gap:8px;margin:16px 0 8px;transition:opacity 0.3s}
+.sec-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap;transition:color 0.3s,text-shadow 0.3s}
+.sec-line{flex:1;height:1px;background:var(--border);transition:background 0.3s,opacity 0.3s}
 .sec-count{font-family:'Cinzel',serif;font-size:9px;color:var(--text-faint)}
+.sec-head.now .sec-lbl{color:var(--gold);text-shadow:0 0 8px var(--gold-dim)}
+.sec-head.now .sec-line{background:linear-gradient(90deg,var(--gold),transparent);opacity:0.6}
+.sec-head.dim{opacity:0.45}
+.sec-head.dim .sec-lbl{color:var(--text-faint)}
 
-.task-card{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;user-select:none;transition:border-color 0.15s,opacity 0.15s}
+.task-card{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;user-select:none;transition:border-color 0.15s,opacity 0.3s}
 .task-card:active{opacity:0.7}
 .task-card.done{opacity:0.45}
+.task-card.dim{opacity:0.3}
 .task-inner{display:flex;align-items:center;gap:10px;padding:11px 13px}
 .task-check{width:20px;height:20px;border-radius:4px;flex-shrink:0;border:2px solid var(--border-hi);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all 0.15s}
+.task-check.pop{animation:checkPop 380ms cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes checkPop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
 .task-text{flex:1;font-size:13.5px;line-height:1.3}
 .task-card.done .task-text{text-decoration:line-through;color:var(--text-dim)}
 .rollover-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.06em;color:#e74c3c;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:8px;padding:1px 6px;flex-shrink:0}
 .remove-btn{opacity:0;font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0 4px;transition:opacity 0.15s;flex-shrink:0}
 .task-card:hover .remove-btn{opacity:0.6}
 .remove-btn:hover{opacity:1!important}
+.task-meta{font-size:10px;color:var(--text-faint);padding:0 13px 8px 45px;font-style:italic;display:none}
+.task-card.done .task-meta{display:block}
+
+.task-note-btn{opacity:0.55;font-size:11px;color:var(--text-dim);background:none;border:1px solid var(--border);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;padding:0;transition:all 0.15s;line-height:1}
+.task-note-btn:hover{opacity:1;border-color:var(--gold);color:var(--gold)}
+.task-card.show-note .task-note-btn{background:var(--gold-dim);border-color:var(--gold);color:var(--gold);opacity:1}
+.task-note{padding:8px 13px 11px 45px;color:var(--text-dim);font-size:12px;line-height:1.45;font-style:italic;border-top:1px dashed var(--border);display:none;background:rgba(0,0,0,0.15)}
+.task-card.show-note .task-note{display:block}
 
 .add-task-row{display:flex;gap:6px;margin-top:6px;margin-bottom:12px}
 .add-task-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'Crimson Text',Georgia,serif;font-size:13px;outline:none}
@@ -123,6 +138,33 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 .reset-btn{background:var(--red-soft);border:1px solid rgba(192,57,43,0.25);color:#e74c3c;border-radius:8px;padding:9px 16px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
 .reset-btn:hover{background:rgba(192,57,43,0.2)}
 .start-badge{display:inline-flex;align-items:center;gap:6px;background:var(--gold-dim);border:1px solid rgba(200,168,74,0.2);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--gold);font-style:italic;margin-bottom:14px}
+
+/* Hard Day mode */
+.hd-toggle{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border-hi);color:var(--text-dim);padding:6px 13px;border-radius:16px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-top:12px}
+.hd-toggle:hover{border-color:var(--gold);color:var(--gold)}
+.hd-toggle.on{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.hd-banner{background:linear-gradient(135deg,var(--gold-dim),transparent);border:1px solid rgba(200,168,74,0.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px}
+.hd-banner-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+.hd-banner-sub{font-size:12px;color:var(--text-dim);font-style:italic}
+.hd-exit{color:var(--gold);background:none;border:none;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;padding:0;margin-top:5px;text-decoration:underline;text-decoration-color:rgba(200,168,74,0.3)}
+.hd-exit:hover{text-decoration-color:var(--gold)}
+
+/* Rollover banner */
+.rollover-bar{background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:8px;padding:11px 13px;margin-bottom:14px}
+.rollover-bar-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#e74c3c;margin-bottom:4px}
+.rollover-bar-list{font-size:12px;color:var(--text-dim);line-height:1.5}
+.more-toggle{background:none;border:none;color:var(--text-dim);font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.08em;cursor:pointer;text-transform:uppercase;padding:5px 0 0;display:inline-block;text-decoration:underline;text-decoration-color:var(--border-hi)}
+.more-toggle:hover{color:var(--text)}
+
+/* Particle overlay (completion FX) */
+#fxOverlay{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.particle{position:absolute;width:6px;height:6px;border-radius:50%;transform:translate(-50%,-50%);will-change:transform,opacity;box-shadow:0 0 8px currentColor}
+.particle.fly{animation:particleFly 650ms cubic-bezier(0.2,0.7,0.3,1) forwards}
+@keyframes particleFly{
+  0%  {opacity:1;transform:translate(-50%,-50%) scale(1)}
+  60% {opacity:0.85}
+  100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0.2)}
+}
 </style>
 </head>
 <body>
@@ -152,6 +194,8 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 </div>
 
 <div class="main" id="mainContent"></div>
+
+<div id="fxOverlay" aria-hidden="true"></div>
 
 <script type="module">
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -187,22 +231,40 @@ function weekK()   { const d=new Date(),m=new Date(d); m.setDate(d.getDate()-((d
 function monthK()  { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}`; }
 function scopeKey(sc){ return sc==='today'?todayK():sc==='week'?weekK():monthK(); }
 
+// === Time-of-day group context (step 2) ===
+// Morning: until 11:00. Midday: 11:00–17:00. Evening: 17:00+
+function timeGroupNow(){
+  const h = new Date().getHours();
+  if(h < 11) return 'morning';
+  if(h < 17) return 'midday';
+  return 'evening';
+}
+const TIME_ORDER = {morning:1, midday:2, evening:3};
+function groupKey(label){
+  const s = (label||'').toLowerCase();
+  if(s.includes('morning')) return 'morning';
+  if(s.includes('midday')||s.includes('noon')||s.includes('afternoon')) return 'midday';
+  if(s.includes('evening')||s.includes('night')) return 'evening';
+  return null; // 'Daily', 'As Able', 'Priority Watch', alert groups — no time context
+}
+
 // === PERSON METADATA (static — colors, roles, names) ===
 const PEOPLE_META = {
   tina:  {name:'Tina',  role:'Systems · Laundry · Master Spaces · Oversight',
-          color:'var(--tina)',  glow:'var(--tina-glow)',  soft:'var(--tina-soft)'},
+          color:'var(--tina)',  glow:'var(--tina-glow)',  soft:'var(--tina-soft)',  hex:'#7B4FBF'},
   mark:  {name:'Mark',  role:'Infrastructure · Maintenance · Ventilation · Garage',
-          color:'var(--mark)',  glow:'var(--mark-glow)',  soft:'var(--mark-soft)'},
+          color:'var(--mark)',  glow:'var(--mark-glow)',  soft:'var(--mark-soft)',  hex:'#2E7D52'},
   connor:{name:'Connor',role:'Dogs · Dishes · Kitchen Reset · Bedroom · Boys\' Bathroom',
-          color:'var(--connor)',glow:'var(--connor-glow)',soft:'var(--connor-soft)'},
+          color:'var(--connor)',glow:'var(--connor-glow)',soft:'var(--connor-soft)',hex:'#C4501A'},
   walker:{name:'Walker',role:'Cats · Litter · Floors · Dishes Assist · Feeding · Hallway',
-          color:'var(--walker)',glow:'var(--walker-glow)',soft:'var(--walker-soft)'},
+          color:'var(--walker)',glow:'var(--walker-glow)',soft:'var(--walker-soft)',hex:'#1A6FA8'},
   gabe:  {name:'Gabe',  role:'Basement · Downstairs Cat · Trash to Road',
-          color:'var(--gabe)',  glow:'var(--gabe-glow)',  soft:'var(--gabe-soft)'}
+          color:'var(--gabe)',  glow:'var(--gabe-glow)',  soft:'var(--gabe-soft)',  hex:'#8A7320'}
 };
 
 // === DEFAULT TASK DEFS (seeded into config/taskDefs on first run) ===
 // Tasks with rollover:true are critical/non-negotiable; missed yesterday surfaces on today.
+// Tasks may have an optional `note` field — small context paragraph, tap to reveal.
 const DEFAULT_TASK_DEFS = {
   tina:{
     today:[
@@ -400,12 +462,13 @@ function rebuildPEOPLE(){
 function isRollover(id){ return _ROLLOVER_CACHE.has(id); }
 
 // STATE
-const state={}, notes={}, custom={};
+const state={}, notes={}, custom={}, hardDay={};
 function ensure(p,sc,k){ if(!state[p])state[p]={}; if(!state[p][sc])state[p][sc]={}; if(!state[p][sc][k])state[p][sc][k]={}; }
 
 const fsCheck =(p,sc,k)=>`checks/${p}/${sc}/${k}`;
 const fsNote  =(p)=>`notes/${p}`;
 const fsCustom=(p,sc)=>`custom/${p}/${sc}`;
+const fsHard  =(p)=>`hardDay/${p}`;
 
 function getChecked(p,sc){ return state[p]?.[sc]?.[scopeKey(sc)]||{}; }
 function getYChecked(p){ return state[p]?.today?.[ydayK()]||{}; }
@@ -430,6 +493,23 @@ function getMissedYday(p){
 function getNote(p){ return notes[p]||''; }
 function getCustom(p,sc){ return custom[p]?.[sc]||[]; }
 
+// Returns list of recent attribution-aware completions for a person in scope, newest first.
+function recentChecks(p, sc, limit=6){
+  const k = scopeKey(sc), m = state[p]?.[sc]?.[k]||{};
+  const arr = [];
+  for(const [tid, v] of Object.entries(m)){
+    if(v && typeof v === 'object' && v.at) arr.push({tid, at:v.at, by:v.by||null});
+  }
+  arr.sort((a,b)=>b.at - a.at);
+  return arr.slice(0, limit);
+}
+function findTaskText(p, sc, tid){
+  const list = sc==='today'
+    ? [...PEOPLE[p].today.flatMap(g=>g.tasks), ...(custom[p]?.today||[])]
+    : [...(PEOPLE[p][sc==='week'?'week':'month']||[]), ...(custom[p]?.[sc]||[])];
+  return list.find(t=>t.id===tid)?.text || tid;
+}
+
 function personStats(p){
   const td=allTodayTasks(p),tc=getChecked(p,'today');
   const wk=allScopeTasks(p,'week'),wc=getChecked(p,'week');
@@ -446,11 +526,41 @@ function syncSt(s){
   document.getElementById('syncLbl').textContent=s==='synced'?'live':s==='syncing'?'saving...':'offline';
 }
 
-async function toggleTask(p,sc,tid){
-  const k=scopeKey(sc); ensure(p,sc,k);
-  state[p][sc][k][tid]=!state[p][sc][k][tid];
+// === Completion FX — particles (step 3) ===
+function spawnParticles(x, y, color){
+  const overlay = document.getElementById('fxOverlay');
+  if(!overlay) return;
+  const colors = [color, '#c8a84a', color, '#c8a84a', '#e8e0d0'];
+  const N = 16;
+  for(let i=0; i<N; i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (Math.PI*2*i)/N + (Math.random()-0.5)*0.35;
+    const dist = 38 + Math.random()*32;
+    p.style.left = x+'px'; p.style.top = y+'px';
+    p.style.background = colors[i % colors.length];
+    p.style.color = colors[i % colors.length];
+    p.style.setProperty('--dx', Math.cos(angle)*dist+'px');
+    p.style.setProperty('--dy', Math.sin(angle)*dist+'px');
+    overlay.appendChild(p);
+    // Trigger animation on next frame so the transform takes effect
+    requestAnimationFrame(()=>p.classList.add('fly'));
+    setTimeout(()=>p.remove(), 720);
+  }
+}
+
+// === Toggle task — attribution-aware storage (step 4) ===
+// Value is object {at, by} when checked; deleted when unchecked. Truthy check still works.
+async function toggleTask(p, sc, tid){
+  const k = scopeKey(sc); ensure(p,sc,k);
+  const cur = state[p][sc][k][tid];
+  if(cur){
+    delete state[p][sc][k][tid];
+  } else {
+    state[p][sc][k][tid] = { at: Date.now(), by: (curP==='command' ? 'tina' : curP) };
+  }
   syncSt('syncing');
-  try{ await setDoc(doc(db,fsCheck(p,sc,k)),state[p][sc][k]); syncSt('synced'); }
+  try{ await setDoc(doc(db,fsCheck(p,sc,k)), state[p][sc][k]); syncSt('synced'); }
   catch(e){ console.error(e); syncSt('error'); }
   refreshView();
 }
@@ -498,6 +608,18 @@ async function resetScope(sc){
   }catch(e){ syncSt('error'); }
 }
 
+// === Hard Day mode (step 5) — persisted per person per day ===
+async function toggleHardDay(p){
+  const on = !hardDay[p];
+  hardDay[p] = on;
+  syncSt('syncing');
+  try{
+    await setDoc(doc(db,fsHard(p)), on ? {date:todayK(), ts:Date.now()} : {});
+    syncSt('synced');
+  }catch(e){ syncSt('error'); }
+  refreshView();
+}
+
 let _checksSubscribed = false;
 function subscribeAll(){
   const pairs=[{sc:'today',k:todayK()},{sc:'today',k:ydayK()},{sc:'week',k:weekK()},{sc:'month',k:monthK()}];
@@ -517,6 +639,12 @@ function subscribeAll(){
         custom[pid][sc]=snap.exists()?(snap.data().tasks||[]):[];
         if(curP===pid||curP==='command') refreshView();
       });
+    });
+    // Hard Day (step 5)
+    onSnapshot(doc(db,fsHard(pid)),snap=>{
+      const d = snap.exists() ? snap.data().date : null;
+      hardDay[pid] = (d === todayK());
+      if(curP===pid||curP==='command') refreshView();
     });
   });
 }
@@ -543,30 +671,80 @@ function subscribeTaskDefs(){
   }, e => { console.error('taskDefs subscribe error', e); syncSt('error'); });
 }
 
-// RENDER HELPERS
-function taskCard(p,sc,task,rolls,canRemove){
-  const chk=getChecked(p,sc), done=!!chk[task.id];
-  const roll=rolls.has(task.id);
-  const px=PEOPLE[p];
-  const chkSt=done?`background:${px.color};border-color:${px.color};box-shadow:0 0 6px ${px.glow}`:roll?`border-color:#e74c3c;box-shadow:0 0 4px rgba(231,76,60,0.3)`:'';
-  const bdr=roll&&!done?'border-color:rgba(231,76,60,0.3)':'';
-  const badge=roll&&!done?`<span class="rollover-badge">missed yesterday</span>`:'';
-  const rmBtn=canRemove?`<button class="remove-btn" onclick="event.stopPropagation();window._rm('${p}','${sc}','${task.id}')" title="Remove">✕</button>`:'';
-  return `<div class="task-card${done?' done':''}" style="${bdr}" onclick="window._tog('${p}','${sc}','${task.id}')"><div class="task-inner"><div class="task-check" style="${chkSt}">${done?'✓':''}</div><div class="task-text">${task.text}</div>${badge}${rmBtn}</div></div>`;
+// === RENDER HELPERS ===
+function escAttr(s){ return (s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtTime(ts){
+  if(!ts) return '';
+  const d = new Date(ts), h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0');
+  const hr = ((h+11)%12)+1; return `${hr}:${m}${h<12?'a':'p'}`;
 }
 
-function secH(label,count){
-  return `<div class="sec-head"><div class="sec-lbl">${label}</div><div class="sec-line"></div>${count!==undefined?`<div class="sec-count">${count}</div>`:''}</div>`;
+function taskCard(p, sc, task, rolls, canRemove){
+  const chk = getChecked(p,sc), checkedVal = chk[task.id], done = !!checkedVal;
+  const roll = rolls.has(task.id);
+  const px = PEOPLE[p];
+  const chkSt = done
+    ? `background:${px.color};border-color:${px.color};box-shadow:0 0 6px ${px.glow}`
+    : roll ? `border-color:#e74c3c;box-shadow:0 0 4px rgba(231,76,60,0.3)` : '';
+  const bdr  = roll && !done ? 'border-color:rgba(231,76,60,0.3)' : '';
+  const badge = roll && !done ? `<span class="rollover-badge">missed yesterday</span>` : '';
+  const noteText = task.note ? escHtml(task.note) : '';
+  const noteBtn = noteText
+    ? `<button class="task-note-btn" onclick="event.stopPropagation();window._togNote(this)" title="Show context">i</button>` : '';
+  const noteBlock = noteText ? `<div class="task-note">${noteText}</div>` : '';
+  const rmBtn = canRemove
+    ? `<button class="remove-btn" onclick="event.stopPropagation();window._rm('${p}','${sc}','${task.id}')" title="Remove">✕</button>` : '';
+  // Attribution meta (only shown on completed tasks via CSS)
+  let meta = '';
+  if(done && typeof checkedVal === 'object'){
+    const by = checkedVal.by && PEOPLE_META[checkedVal.by] ? PEOPLE_META[checkedVal.by].name : (checkedVal.by||'');
+    const at = fmtTime(checkedVal.at);
+    if(by || at) meta = `<div class="task-meta">${by?'by '+by:''}${by&&at?' · ':''}${at||''}</div>`;
+  }
+  return `<div class="task-card${done?' done':''}" style="${bdr}" onclick="window._tog('${p}','${sc}','${task.id}',event)">
+    <div class="task-inner">
+      <div class="task-check" style="${chkSt}">${done?'✓':''}</div>
+      <div class="task-text">${escHtml(task.text)}</div>
+      ${badge}${noteBtn}${rmBtn}
+    </div>
+    ${noteBlock}${meta}
+  </div>`;
+}
+
+function secH(label, count, stateCls){
+  const cls = stateCls ? ' '+stateCls : '';
+  return `<div class="sec-head${cls}"><div class="sec-lbl">${escHtml(label)}</div><div class="sec-line"></div>${count!==undefined?`<div class="sec-count">${count}</div>`:''}</div>`;
 }
 
 function addRow(p,sc){
   return `<div class="add-task-row"><input class="add-task-input" id="ai_${p}_${sc}" placeholder="Add a task..." onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')"><button class="add-task-btn" onclick="window._add('${p}','${sc}')">+ Add</button></div>`;
 }
 
-function renderPerson(p){
-  const px=PEOPLE[p], st=personStats(p), rolls=getRollovers(p), started=isStarted();
+// === Render rollover banner with 3-cap + show-more (step 6) ===
+function renderRolloverBanner(p, rolls){
+  if(rolls.size === 0) return '';
+  const items = allTodayTasks(p).filter(t => rolls.has(t.id))
+    .map(t => t.text.split('—')[0].trim());
+  const head = items.slice(0,3), rest = items.slice(3);
+  let html = `<div class="rollover-bar">
+    <div class="rollover-bar-title">⚠ ${rolls.size} rolled over from yesterday</div>
+    <div class="rollover-bar-list">${escHtml(head.join(', '))}`;
+  if(rest.length){
+    const restId = `rovMore_${p}_${Date.now()}`;
+    html += `<div id="${restId}" style="display:none;margin-top:4px">${escHtml(rest.join(', '))}</div>
+      <button class="more-toggle" data-rid="${restId}" data-more="+${rest.length} more" data-less="hide ${rest.length}" onclick="window._togMore(this)">+${rest.length} more</button>`;
+  }
+  html += '</div></div>';
+  return html;
+}
 
-  let hero=`<div class="person-hero" style="background:linear-gradient(135deg,${px.soft},transparent);border-color:${px.glow}">
+function renderPerson(p){
+  const px = PEOPLE[p], st = personStats(p), rolls = getRollovers(p), started = isStarted();
+  const hd = !!hardDay[p];
+  const nowGrp = timeGroupNow();
+
+  let hero = `<div class="person-hero" style="background:linear-gradient(135deg,${px.soft},transparent);border-color:${px.glow}">
     <div class="hero-name" style="color:${px.color}">${px.name}</div>
     <div class="hero-role">${px.role}</div>
     <div class="hero-stats">
@@ -574,47 +752,70 @@ function renderPerson(p){
       <div class="stat-box"><div class="stat-val" style="color:${px.color}">${st.tTotal-st.tDone}</div><div class="stat-lbl">Remaining</div></div>
       <div class="stat-box"><div class="stat-val" style="color:${rolls.size>0?'#e74c3c':px.color}">${rolls.size}</div><div class="stat-lbl">Rolled Over</div></div>
       <div class="stat-box"><div class="stat-val" style="color:${px.color}">${st.pct}%</div><div class="stat-lbl">Week</div></div>
-    </div></div>`;
+    </div>
+    <button class="hd-toggle${hd?' on':''}" onclick="window._hd('${p}')">${hd?'✓ Hard Day · essentials only':'Hard Day — essentials only'}</button>
+  </div>`;
 
   if(!started){
-    hero+=`<div class="start-badge">⏳ System starts ${fmtStart()} — no missed indicators yet</div>`;
-  } else if(rolls.size>0){
-    const names=allTodayTasks(p).filter(t=>rolls.has(t.id)).map(t=>t.text.split('—')[0].trim()).join(', ');
-    hero+=`<div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:8px;padding:11px 13px;margin-bottom:14px"><div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#e74c3c;margin-bottom:4px">⚠ ${rolls.size} rolled over from yesterday</div><div style="font-size:12px;color:var(--text-dim)">${names}</div></div>`;
+    hero += `<div class="start-badge">⏳ System starts ${fmtStart()} — no missed indicators yet</div>`;
+  } else {
+    hero += renderRolloverBanner(p, rolls);
   }
 
   // TODAY
-  let T=hero;
+  let T = hero;
+  if(hd){
+    T += `<div class="hd-banner">
+      <div class="hd-banner-title">Hard Day — Essentials Only</div>
+      <div class="hd-banner-sub">Showing critical tasks. Everything else can wait. This is permission, not punishment.</div>
+      <button class="hd-exit" onclick="window._hd('${p}')">exit hard day</button>
+    </div>`;
+  }
+
   px.today.forEach(g=>{
+    const tasks = hd ? (g.tasks||[]).filter(t => t.rollover) : (g.tasks||[]);
+    if(!tasks.length) return;
+    const tg = groupKey(g.group);
+    let stateCls = '';
+    if(tg && TIME_ORDER[tg]){
+      if(tg === nowGrp) stateCls = 'now';
+      else if(TIME_ORDER[tg] < TIME_ORDER[nowGrp]){
+        const grpDone = tasks.every(t => getChecked(p,'today')[t.id]);
+        if(grpDone) stateCls = 'dim';
+      }
+    }
     if(g.alert){
-      T+=`<div class="alert-card"><div class="alert-title">${g.group}</div>`;
-      g.tasks.forEach(t=>T+=taskCard(p,'today',t,rolls,false));
-      T+=`</div>`;
+      T += `<div class="alert-card"><div class="alert-title">${escHtml(g.group)}</div>`;
+      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false));
+      T += `</div>`;
     } else {
-      T+=secH(g.group);
-      g.tasks.forEach(t=>T+=taskCard(p,'today',t,rolls,false));
+      T += secH(g.group, undefined, stateCls);
+      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false));
     }
   });
-  const ct=getCustom(p,'today');
-  if(ct.length){ T+=secH('My Added Tasks'); ct.forEach(t=>T+=taskCard(p,'today',t,rolls,true)); }
-  T+=addRow(p,'today');
-  T+=`${secH('Notes for Tina + Mark')}<div class="notes-area"><textarea class="notes-input" placeholder="Anything to flag? Tap to type..." oninput="window._note('${p}',this.value)">${getNote(p)}</textarea></div>`;
+  const ct = getCustom(p,'today');
+  if(ct.length){
+    T += secH('My Added Tasks');
+    ct.forEach(t => T += taskCard(p,'today',t,rolls,true));
+  }
+  T += addRow(p,'today');
+  T += `${secH('Notes for Tina + Mark')}<div class="notes-area"><textarea class="notes-input" placeholder="Anything to flag? Tap to type..." oninput="window._note('${p}',this.value)">${escHtml(getNote(p))}</textarea></div>`;
 
   // WEEK
-  const wt=allScopeTasks(p,'week'), wd=wt.filter(t=>getChecked(p,'week')[t.id]).length;
-  let W=secH('This Week\'s Tasks',`${wd}/${wt.length}`);
-  px.week.forEach(t=>W+=taskCard(p,'week',t,new Set(),false));
-  const cw=getCustom(p,'week');
-  if(cw.length){ W+=secH('My Added Tasks'); cw.forEach(t=>W+=taskCard(p,'week',t,new Set(),true)); }
-  W+=addRow(p,'week');
+  const wt = allScopeTasks(p,'week'), wd = wt.filter(t => getChecked(p,'week')[t.id]).length;
+  let W = secH('This Week\'s Tasks',`${wd}/${wt.length}`);
+  px.week.forEach(t => W += taskCard(p,'week',t,new Set(),false));
+  const cw = getCustom(p,'week');
+  if(cw.length){ W += secH('My Added Tasks'); cw.forEach(t => W += taskCard(p,'week',t,new Set(),true)); }
+  W += addRow(p,'week');
 
   // MONTH
-  const mt=allScopeTasks(p,'month'), md=mt.filter(t=>getChecked(p,'month')[t.id]).length;
-  let M=secH('This Month\'s Tasks',`${md}/${mt.length}`);
-  px.month.forEach(t=>M+=taskCard(p,'month',t,new Set(),false));
-  const cm=getCustom(p,'month');
-  if(cm.length){ M+=secH('My Added Tasks'); cm.forEach(t=>M+=taskCard(p,'month',t,new Set(),true)); }
-  M+=addRow(p,'month');
+  const mt = allScopeTasks(p,'month'), md = mt.filter(t => getChecked(p,'month')[t.id]).length;
+  let M = secH('This Month\'s Tasks',`${md}/${mt.length}`);
+  px.month.forEach(t => M += taskCard(p,'month',t,new Set(),false));
+  const cm = getCustom(p,'month');
+  if(cm.length){ M += secH('My Added Tasks'); cm.forEach(t => M += taskCard(p,'month',t,new Set(),true)); }
+  M += addRow(p,'month');
 
   return {T,W,M};
 }
@@ -630,6 +831,7 @@ function renderCommand(){
     const px=PEOPLE[pid],st=personStats(pid),rolls=getRollovers(pid);
     const missed=getMissedYday(pid).filter(t=>!isRollover(t.id));
     const hasNote=!!getNote(pid).trim();
+    const hd = !!hardDay[pid];
     T+=`<div class="cmd-card" onclick="window._goto('${pid}')">
       <div class="cmd-hd" style="background:${px.color}">${px.name}</div>
       <div class="cmd-bd">
@@ -639,6 +841,7 @@ function renderCommand(){
         ${started&&rolls.size>0?`<div class="cmd-flag" style="color:#e74c3c">⚠ ${rolls.size} rolled over</div>`:''}
         ${started&&missed.length>0?`<div class="cmd-flag" style="color:var(--text-faint)">○ ${missed.length} missed yday</div>`:''}
         ${hasNote?`<div class="cmd-flag" style="color:var(--gold)">📝 note</div>`:''}
+        ${hd?`<div class="cmd-flag" style="color:var(--gold)">⚑ Hard Day</div>`:''}
       </div></div>`;
   });
   T+=`</div><div class="gold-div"></div>`;
@@ -652,17 +855,42 @@ function renderCommand(){
       const px=PEOPLE[pid];
       const cr=m.filter(t=>isRollover(t.id)), ot=m.filter(t=>!isRollover(t.id));
       T+=`<div class="slip-item"><strong style="color:${px.color}">${px.name}</strong>
-        ${cr.length?`<div style="margin-top:4px;font-size:12px;color:#e74c3c">Critical (rolled over): ${cr.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
-        ${ot.length?`<div style="margin-top:3px;font-size:12px;color:var(--text-dim)">Other missed: ${ot.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
+        ${cr.length?`<div style="margin-top:4px;font-size:12px;color:#e74c3c">Critical (rolled over): ${escHtml(cr.map(t=>t.text.split('—')[0].trim()).join(' · '))}</div>`:''}
+        ${ot.length?`<div style="margin-top:3px;font-size:12px;color:var(--text-dim)">Other missed: ${escHtml(ot.map(t=>t.text.split('—')[0].trim()).join(' · '))}</div>`:''}
       </div>`;
     });
     if(!any) T+=`<div class="empty-msg">Nothing missed yesterday 🏆</div>`;
     T+=`<div class="gold-div"></div>`;
   }
 
+  // Recent activity (step 4)
+  T += secH('Recent Activity — Today');
+  const allRecent = [];
+  pids.forEach(pid => {
+    recentChecks(pid,'today',10).forEach(r => allRecent.push({pid, ...r}));
+  });
+  allRecent.sort((a,b) => b.at - a.at);
+  const slice = allRecent.slice(0, 8);
+  if(slice.length){
+    slice.forEach(r => {
+      const px = PEOPLE[r.pid], byName = r.by && PEOPLE_META[r.by] ? PEOPLE_META[r.by].name : (r.by||'');
+      const txt = findTaskText(r.pid,'today',r.tid);
+      const sameActor = r.by === r.pid;
+      const byStr = byName ? (sameActor ? '' : ` <span style="color:var(--text-faint)">via ${escHtml(byName)}</span>`) : '';
+      T += `<div class="slip-item">
+        <span style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.08em;color:var(--text-faint)">${fmtTime(r.at)}</span>
+        <strong style="color:${px.color};margin-left:8px">${px.name}</strong>${byStr}
+        <div style="margin-top:3px;color:var(--text-dim);font-size:12px">${escHtml(txt)}</div>
+      </div>`;
+    });
+  } else {
+    T += `<div class="empty-msg">No completions logged yet today.</div>`;
+  }
+  T += `<div class="gold-div"></div>`;
+
   T+=secH('Active Notes from Household');
   let anyN=false;
-  pids.forEach(pid=>{ const n=getNote(pid); if(!n.trim()) return; anyN=true; T+=`<div class="slip-item"><strong style="color:${PEOPLE[pid].color}">${PEOPLE[pid].name}</strong><div style="margin-top:4px;color:var(--text-dim)">${n}</div></div>`; });
+  pids.forEach(pid=>{ const n=getNote(pid); if(!n.trim()) return; anyN=true; T+=`<div class="slip-item"><strong style="color:${PEOPLE[pid].color}">${PEOPLE[pid].name}</strong><div style="margin-top:4px;color:var(--text-dim)">${escHtml(n)}</div></div>`; });
   if(!anyN) T+=`<div class="empty-msg">No notes today.</div>`;
   T+=`<div class="gold-div"></div>`;
 
@@ -712,11 +940,36 @@ function renderCurrent(){
 
 function refreshView(){ if(document.getElementById('ls').style.display==='none') renderCurrent(); }
 
-window._tog =(p,sc,tid)=>toggleTask(p,sc,tid);
-window._note=(p,t)=>saveNote(p,t);
-window._rst =(sc)=>resetScope(sc);
-window._add =(p,sc)=>{ const el=document.getElementById(`ai_${p}_${sc}`); if(el){addTask(p,sc,el.value);el.value='';} };
-window._rm  =(p,sc,tid)=>removeTask(p,sc,tid);
+// === Toggle wrapper — captures event for particle FX (step 3) ===
+window._tog = (p, sc, tid, ev) => {
+  const k = scopeKey(sc);
+  const wasChecked = !!(state[p]?.[sc]?.[k]?.[tid]);
+  if(!wasChecked && ev){
+    const card = ev.currentTarget;
+    const cb = card && card.querySelector ? card.querySelector('.task-check') : null;
+    if(cb){
+      const r = cb.getBoundingClientRect();
+      const px = PEOPLE[p] || PEOPLE_META[p];
+      const hex = px?.hex || '#c8a84a';
+      spawnParticles(r.left + r.width/2, r.top + r.height/2, hex);
+      cb.classList.add('pop');
+    }
+  }
+  toggleTask(p, sc, tid);
+};
+window._note = (p,t) => saveNote(p,t);
+window._rst  = (sc) => resetScope(sc);
+window._add  = (p,sc) => { const el=document.getElementById(`ai_${p}_${sc}`); if(el){addTask(p,sc,el.value);el.value='';} };
+window._rm   = (p,sc,tid) => removeTask(p,sc,tid);
+window._hd   = (p) => toggleHardDay(p);
+window._togNote = (btn) => { const card = btn.closest('.task-card'); if(card) card.classList.toggle('show-note'); };
+window._togMore = (btn) => {
+  const el = document.getElementById(btn.dataset.rid);
+  if(!el) return;
+  const showing = el.style.display !== 'none';
+  el.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? btn.dataset.more : btn.dataset.less;
+};
 
 function updateDate(){
   const d=new Date();
@@ -725,6 +978,16 @@ function updateDate(){
   const el=document.getElementById('hDate');
   if(el) el.textContent=`${days[d.getDay()]} ${mo[d.getMonth()]} ${d.getDate()}`;
 }
+
+// Re-render every 10 min so time-of-day highlighting moves through the day even if idle.
+let _lastTimeGroup = timeGroupNow();
+setInterval(()=>{
+  const g = timeGroupNow();
+  if(g !== _lastTimeGroup){
+    _lastTimeGroup = g;
+    refreshView();
+  }
+}, 60000);
 
 function init(){
   syncSt('syncing');
@@ -735,11 +998,9 @@ function init(){
     buildNav(); updateDate(); renderCurrent(); syncSt('synced');
   };
   subscribeTaskDefs();
-  // After 3s, update loading message if still waiting
   setTimeout(()=>{
     if(!shown) document.getElementById('lmsg').textContent='Still connecting... please wait';
   }, 3000);
-  // After 6s fallback: if Firestore unreachable, use local defaults so the app still works
   setTimeout(()=>{
     if(shown) return;
     if(!TASK_DEFS){
