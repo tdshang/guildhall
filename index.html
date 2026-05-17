@@ -187,12 +187,24 @@ function weekK()   { const d=new Date(),m=new Date(d); m.setDate(d.getDate()-((d
 function monthK()  { const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}`; }
 function scopeKey(sc){ return sc==='today'?todayK():sc==='week'?weekK():monthK(); }
 
-const ROLLOVER = new Set(['ce1','ce6','ce7','wm5','wm6','wmd1','we1','we2','we3','we5','we6','wh1','gd1','gd2','mpd1','mpd2','tmo2']);
+// === PERSON METADATA (static — colors, roles, names) ===
+const PEOPLE_META = {
+  tina:  {name:'Tina',  role:'Systems · Laundry · Master Spaces · Oversight',
+          color:'var(--tina)',  glow:'var(--tina-glow)',  soft:'var(--tina-soft)'},
+  mark:  {name:'Mark',  role:'Infrastructure · Maintenance · Ventilation · Garage',
+          color:'var(--mark)',  glow:'var(--mark-glow)',  soft:'var(--mark-soft)'},
+  connor:{name:'Connor',role:'Dogs · Dishes · Kitchen Reset · Bedroom · Boys\' Bathroom',
+          color:'var(--connor)',glow:'var(--connor-glow)',soft:'var(--connor-soft)'},
+  walker:{name:'Walker',role:'Cats · Litter · Floors · Dishes Assist · Feeding · Hallway',
+          color:'var(--walker)',glow:'var(--walker-glow)',soft:'var(--walker-soft)'},
+  gabe:  {name:'Gabe',  role:'Basement · Downstairs Cat · Trash to Road',
+          color:'var(--gabe)',  glow:'var(--gabe-glow)',  soft:'var(--gabe-soft)'}
+};
 
-const PEOPLE = {
+// === DEFAULT TASK DEFS (seeded into config/taskDefs on first run) ===
+// Tasks with rollover:true are critical/non-negotiable; missed yesterday surfaces on today.
+const DEFAULT_TASK_DEFS = {
   tina:{
-    name:'Tina',role:'Systems · Laundry · Master Spaces · Oversight',
-    color:'var(--tina)',glow:'var(--tina-glow)',soft:'var(--tina-soft)',
     today:[
       {group:'Morning',tasks:[
         {id:'tm1',text:'Start a load of laundry'},
@@ -209,20 +221,20 @@ const PEOPLE = {
       ]},
       {group:'⚠ Mold Protocol — Until Vent Fixed',alert:true,tasks:[
         {id:'tmo1',text:'Vinegar spray on bath ceiling every 3–4 days — let dry, do not wipe'},
-        {id:'tmo2',text:'Fan ON + door OPEN after every shower'},
+        {id:'tmo2',text:'Fan ON + door OPEN after every shower',rollover:true},
         {id:'tmo3',text:'No fabric/towels stored in master bathroom'},
       ]},
     ],
     week:[
-      {id:'tw1',text:'Monday: Laundry full catch-up',day:'Mon'},
-      {id:'tw2',text:'Tuesday: Kitchen deeper pass + pantry check',day:'Tue'},
-      {id:'tw3',text:'Wednesday: Vinegar spray master bath ceiling',day:'Wed'},
-      {id:'tw4',text:'Wednesday: Later basket sort',day:'Wed'},
-      {id:'tw5',text:'Thursday: Clean master bathroom',day:'Thu'},
-      {id:'tw6',text:'Friday: Donation bag check + fridge check',day:'Fri'},
-      {id:'tw7',text:'Saturday: Declutter target zone',day:'Sat'},
-      {id:'tw8',text:'Saturday: Kitchen full reset',day:'Sat'},
-      {id:'tw9',text:'Sunday: Prep for week + tea station reset',day:'Sun'},
+      {id:'tw1', text:'Monday: Laundry full catch-up',day:'Mon'},
+      {id:'tw2', text:'Tuesday: Kitchen deeper pass + pantry check',day:'Tue'},
+      {id:'tw3', text:'Wednesday: Vinegar spray master bath ceiling',day:'Wed'},
+      {id:'tw4', text:'Wednesday: Later basket sort',day:'Wed'},
+      {id:'tw5', text:'Thursday: Clean master bathroom',day:'Thu'},
+      {id:'tw6', text:'Friday: Donation bag check + fridge check',day:'Fri'},
+      {id:'tw7', text:'Saturday: Declutter target zone',day:'Sat'},
+      {id:'tw8', text:'Saturday: Kitchen full reset',day:'Sat'},
+      {id:'tw9', text:'Sunday: Prep for week + tea station reset',day:'Sun'},
       {id:'tw10',text:'Sunday: Command center review with Mark',day:'Sun'},
     ],
     month:[
@@ -235,8 +247,6 @@ const PEOPLE = {
     ]
   },
   mark:{
-    name:'Mark',role:'Infrastructure · Maintenance · Ventilation · Garage',
-    color:'var(--mark)',glow:'var(--mark-glow)',soft:'var(--mark-soft)',
     today:[
       {group:'As Able',tasks:[
         {id:'mad1',text:'Kitchen reset support if able'},
@@ -244,8 +254,8 @@ const PEOPLE = {
         {id:'mad3',text:'Trash — take out if at capacity'},
       ]},
       {group:'Priority Watch',tasks:[
-        {id:'mpd1',text:'Master bath fan on after showers'},
-        {id:'mpd2',text:'Master bath door open after showers'},
+        {id:'mpd1',text:'Master bath fan on after showers',rollover:true},
+        {id:'mpd2',text:'Master bath door open after showers',rollover:true},
         {id:'mpd3',text:'Flag anything breaking down or urgent'},
       ]},
     ],
@@ -267,8 +277,6 @@ const PEOPLE = {
     ]
   },
   connor:{
-    name:'Connor',role:'Dogs · Dishes · Kitchen Reset · Bedroom · Boys\' Bathroom',
-    color:'var(--connor)',glow:'var(--connor-glow)',soft:'var(--connor-soft)',
     today:[
       {group:'Morning',tasks:[
         {id:'cm1',text:'Trash out of room'},
@@ -277,12 +285,12 @@ const PEOPLE = {
         {id:'cm4',text:'Bed straightened'},
       ]},
       {group:'Evening',tasks:[
-        {id:'ce1',text:'Hand wash ALL dishes — left to dry for Walker'},
-        {id:'ce2',text:'Wipe counters + stove + sink'},
-        {id:'ce6',text:'Replace hearth pee pad'},
-        {id:'ce7',text:'Clean all dog litter areas'},
-        {id:'ce8',text:'Rubber broom bedroom carpet'},
-        {id:'ce9',text:'Put clean clothes away'},
+        {id:'ce1', text:'Hand wash ALL dishes — left to dry for Walker',rollover:true},
+        {id:'ce2', text:'Wipe counters + stove + sink'},
+        {id:'ce6', text:'Replace hearth pee pad',rollover:true},
+        {id:'ce7', text:'Clean all dog litter areas',rollover:true},
+        {id:'ce8', text:'Rubber broom bedroom carpet'},
+        {id:'ce9', text:'Put clean clothes away'},
         {id:'ce10',text:'Dog enrichment/play 15–20 min + quick brush'},
       ]},
     ],
@@ -306,27 +314,25 @@ const PEOPLE = {
     ]
   },
   walker:{
-    name:'Walker',role:'Cats · Litter · Floors · Dishes Assist · Feeding · Hallway',
-    color:'var(--walker)',glow:'var(--walker-glow)',soft:'var(--walker-soft)',
     today:[
       {group:'Morning',tasks:[
         {id:'wm1',text:'Trash out of room'},
         {id:'wm2',text:'Dishes/cups to kitchen'},
         {id:'wm3',text:'Dirty clothes in hamper'},
         {id:'wm4',text:'Bed straightened'},
-        {id:'wm5',text:'Feed and water dog in room'},
-        {id:'wm6',text:'Scoop both cat litter boxes'},
-        {id:'wh1',text:'Change hallway pee pads'},
+        {id:'wm5',text:'Feed and water dog in room',rollover:true},
+        {id:'wm6',text:'Scoop both cat litter boxes',rollover:true},
+        {id:'wh1',text:'Change hallway pee pads',rollover:true},
       ]},
       {group:'Midday',tasks:[
-        {id:'wmd1',text:'Scoop both cat litter boxes'},
+        {id:'wmd1',text:'Scoop both cat litter boxes',rollover:true},
       ]},
       {group:'Evening',tasks:[
-        {id:'we1',text:'Scoop both cat litter boxes'},
-        {id:'we2',text:'Sweep kitchen floor'},
-        {id:'we3',text:'Sweep main path floors + hallway'},
-        {id:'we5',text:'Clean pet feeding area — wipe mat, remove scatter'},
-        {id:'we6',text:'Dry all dishes + put away completely'},
+        {id:'we1',text:'Scoop both cat litter boxes',rollover:true},
+        {id:'we2',text:'Sweep kitchen floor',rollover:true},
+        {id:'we3',text:'Sweep main path floors + hallway',rollover:true},
+        {id:'we5',text:'Clean pet feeding area — wipe mat, remove scatter',rollover:true},
+        {id:'we6',text:'Dry all dishes + put away completely',rollover:true},
         {id:'we7',text:'Put clean clothes away'},
         {id:'we8',text:'Pet enrichment/play 15–20 min + quick brush'},
       ]},
@@ -349,12 +355,10 @@ const PEOPLE = {
     ]
   },
   gabe:{
-    name:'Gabe',role:'Basement · Downstairs Cat · Trash to Road',
-    color:'var(--gabe)',glow:'var(--gabe-glow)',soft:'var(--gabe-soft)',
     today:[
       {group:'Daily',tasks:[
-        {id:'gd1',text:'Clean downstairs cat litter'},
-        {id:'gd2',text:'Feed and water downstairs cat'},
+        {id:'gd1',text:'Clean downstairs cat litter',rollover:true},
+        {id:'gd2',text:'Feed and water downstairs cat',rollover:true},
         {id:'gd3',text:'Remove trash and dishes from space'},
         {id:'gd4',text:'Keep pathways clear'},
         {id:'gd5',text:'Reset workspace before bed'},
@@ -372,6 +376,28 @@ const PEOPLE = {
     ]
   }
 };
+
+// === LIVE TASK DEFS — loaded from Firestore, mirrors DEFAULT_TASK_DEFS shape ===
+let TASK_DEFS = null;
+const PEOPLE = {};
+let _ROLLOVER_CACHE = new Set();
+
+function rebuildPEOPLE(){
+  for(const pid of Object.keys(PEOPLE_META)){
+    const defs = (TASK_DEFS && TASK_DEFS[pid]) || {today:[], week:[], month:[]};
+    PEOPLE[pid] = {
+      ...PEOPLE_META[pid],
+      today: defs.today || [],
+      week:  defs.week  || [],
+      month: defs.month || [],
+    };
+  }
+  _ROLLOVER_CACHE = new Set();
+  for(const pid of Object.keys(PEOPLE)){
+    PEOPLE[pid].today.forEach(g => (g.tasks||[]).forEach(t => { if(t.rollover) _ROLLOVER_CACHE.add(t.id); }));
+  }
+}
+function isRollover(id){ return _ROLLOVER_CACHE.has(id); }
 
 // STATE
 const state={}, notes={}, custom={};
@@ -393,7 +419,7 @@ function allScopeTasks(p,sc){
 function getRollovers(p){
   if(!isStarted()) return new Set();
   const yc=getYChecked(p), tc=getChecked(p,'today'), out=new Set();
-  allTodayTasks(p).forEach(t=>{ if(ROLLOVER.has(t.id)&&!yc[t.id]&&!tc[t.id]) out.add(t.id); });
+  allTodayTasks(p).forEach(t=>{ if(isRollover(t.id)&&!yc[t.id]&&!tc[t.id]) out.add(t.id); });
   return out;
 }
 function getMissedYday(p){
@@ -472,6 +498,7 @@ async function resetScope(sc){
   }catch(e){ syncSt('error'); }
 }
 
+let _checksSubscribed = false;
 function subscribeAll(){
   const pairs=[{sc:'today',k:todayK()},{sc:'today',k:ydayK()},{sc:'week',k:weekK()},{sc:'month',k:monthK()}];
   Object.keys(PEOPLE).forEach(pid=>{
@@ -492,6 +519,28 @@ function subscribeAll(){
       });
     });
   });
+}
+
+// === Subscribe to config/taskDefs; seed defaults on first run if missing ===
+function subscribeTaskDefs(){
+  onSnapshot(doc(db,'config/taskDefs'), async snap => {
+    if(!snap.exists()){
+      try{
+        syncSt('syncing');
+        await setDoc(doc(db,'config/taskDefs'), DEFAULT_TASK_DEFS);
+        // onSnapshot will re-fire with seeded data
+      }catch(e){
+        console.error('Seed taskDefs failed', e);
+        syncSt('error');
+      }
+      return;
+    }
+    TASK_DEFS = snap.data();
+    rebuildPEOPLE();
+    if(!_checksSubscribed){ _checksSubscribed = true; subscribeAll(); }
+    if(window._showApp) window._showApp();
+    refreshView();
+  }, e => { console.error('taskDefs subscribe error', e); syncSt('error'); });
 }
 
 // RENDER HELPERS
@@ -579,7 +628,7 @@ function renderCommand(){
   T+=`<div class="cmd-grid">`;
   pids.forEach(pid=>{
     const px=PEOPLE[pid],st=personStats(pid),rolls=getRollovers(pid);
-    const missed=getMissedYday(pid).filter(t=>!ROLLOVER.has(t.id));
+    const missed=getMissedYday(pid).filter(t=>!isRollover(t.id));
     const hasNote=!!getNote(pid).trim();
     T+=`<div class="cmd-card" onclick="window._goto('${pid}')">
       <div class="cmd-hd" style="background:${px.color}">${px.name}</div>
@@ -601,7 +650,7 @@ function renderCommand(){
     pids.forEach(pid=>{
       const m=getMissedYday(pid); if(!m.length) return; any=true;
       const px=PEOPLE[pid];
-      const cr=m.filter(t=>ROLLOVER.has(t.id)), ot=m.filter(t=>!ROLLOVER.has(t.id));
+      const cr=m.filter(t=>isRollover(t.id)), ot=m.filter(t=>!isRollover(t.id));
       T+=`<div class="slip-item"><strong style="color:${px.color}">${px.name}</strong>
         ${cr.length?`<div style="margin-top:4px;font-size:12px;color:#e74c3c">Critical (rolled over): ${cr.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
         ${ot.length?`<div style="margin-top:3px;font-size:12px;color:var(--text-dim)">Other missed: ${ot.map(t=>t.text.split('—')[0].trim()).join(' · ')}</div>`:''}
@@ -653,6 +702,7 @@ window._goto=function(p){
 };
 
 function renderCurrent(){
+  if(!TASK_DEFS) return;
   const {T,W,M}=curP==='command'?renderCommand():renderPerson(curP);
   document.getElementById('mainContent').innerHTML=`
     <div class="tab-panel${curTab==='today'?' active':''}" id="tp_today">${T}</div>
@@ -680,23 +730,26 @@ function init(){
   syncSt('syncing');
   let shown=false;
   window._showApp=function(){
-    if(shown) return; shown=true;
+    if(shown || !TASK_DEFS) return; shown=true;
     document.getElementById('ls').style.display='none';
     buildNav(); updateDate(); renderCurrent(); syncSt('synced');
   };
-  subscribeAll();
-  // Show app after 6 seconds regardless, in case snapshots are slow
+  subscribeTaskDefs();
+  // After 3s, update loading message if still waiting
   setTimeout(()=>{
-    if(!shown){
-      window._showApp();
-    }
-  }, 6000);
-  // Update loading message after 3s if still waiting
-  setTimeout(()=>{
-    if(!shown){
-      document.getElementById('lmsg').textContent='Still connecting... please wait';
-    }
+    if(!shown) document.getElementById('lmsg').textContent='Still connecting... please wait';
   }, 3000);
+  // After 6s fallback: if Firestore unreachable, use local defaults so the app still works
+  setTimeout(()=>{
+    if(shown) return;
+    if(!TASK_DEFS){
+      console.warn('TASK_DEFS not loaded after 6s — falling back to local defaults');
+      TASK_DEFS = DEFAULT_TASK_DEFS;
+      rebuildPEOPLE();
+      if(!_checksSubscribed){ _checksSubscribed = true; subscribeAll(); }
+    }
+    window._showApp();
+  }, 6000);
 }
 init();
 setInterval(updateDate,60000);
