@@ -601,7 +601,8 @@ const choreChecks={};  // {[weekKey]: {[choreId]: {[dayKey]: {at,by}}}}
 
 // Form / editor state — survives re-renders by re-populating from these.
 let _formOpen = null;  // 'addChore' | 'addProject' | 'addShop' | null
-let _editing = null;   // {kind: 'chore'|'project'|'shop'|'shopQty', id, projId?} | null
+let _editing = null;   // {kind: 'chore'|'project'|'taskDef'|'addTask', id|tid, pid?, sc?, group?} | null
+let _editMode = false; // step 12 — show task-def add/edit/delete affordances
 
 function ensure(p,sc,k){ if(!state[p])state[p]={}; if(!state[p][sc])state[p][sc]={}; if(!state[p][sc][k])state[p][sc][k]={}; }
 
@@ -807,6 +808,92 @@ async function toggleChoreCheck(choreId, dayKey){
   refreshView();
 }
 
+// === Task definitions editor (step 12) ===
+async function persistTaskDefs(){
+  if(!TASK_DEFS) return;
+  syncSt('syncing');
+  try{ await setDoc(doc(db,'config/taskDefs'), TASK_DEFS); syncSt('synced'); }
+  catch(e){ console.error(e); syncSt('error'); }
+  refreshView();
+}
+async function editTaskDef(pid, sc, tid, patch){
+  if(!TASK_DEFS?.[pid]) return;
+  const defs = TASK_DEFS[pid];
+  if(sc === 'today'){
+    for(const g of (defs.today||[])){
+      const t = (g.tasks||[]).find(t => t.id === tid);
+      if(t){
+        if('text' in patch) t.text = patch.text;
+        if('rollover' in patch){
+          if(patch.rollover) t.rollover = true; else delete t.rollover;
+        }
+        if('note' in patch){
+          if(patch.note && patch.note.trim()) t.note = patch.note.trim(); else delete t.note;
+        }
+        break;
+      }
+    }
+  } else {
+    const t = (defs[sc]||[]).find(t => t.id === tid);
+    if(t){
+      if('text' in patch) t.text = patch.text;
+      if('day'  in patch){ if(patch.day) t.day = patch.day; else delete t.day; }
+      if('note' in patch){ if(patch.note && patch.note.trim()) t.note = patch.note.trim(); else delete t.note; }
+    }
+  }
+  await persistTaskDefs();
+}
+async function deleteTaskDef(pid, sc, tid){
+  if(!confirm('Delete this task permanently from the defaults?')) return;
+  if(!TASK_DEFS?.[pid]) return;
+  const defs = TASK_DEFS[pid];
+  if(sc === 'today'){
+    (defs.today||[]).forEach(g => { g.tasks = (g.tasks||[]).filter(t => t.id !== tid); });
+  } else {
+    defs[sc] = (defs[sc]||[]).filter(t => t.id !== tid);
+  }
+  await persistTaskDefs();
+}
+async function addTaskDef(pid, sc, opts){
+  if(!opts?.text?.trim() || !TASK_DEFS?.[pid]) return;
+  const defs = TASK_DEFS[pid];
+  const id = pid.slice(0,2) + '_' + (sc==='today'?'d':sc[0]) + '_' + Date.now();
+  const newTask = {id, text: opts.text.trim()};
+  if(opts.rollover) newTask.rollover = true;
+  if(opts.note && opts.note.trim()) newTask.note = opts.note.trim();
+  if(sc === 'today'){
+    const groupName = opts.group || (defs.today[0]?.group || 'Daily');
+    let g = (defs.today||[]).find(g => g.group === groupName);
+    if(!g){ g = {group: groupName, tasks: []}; defs.today = defs.today || []; defs.today.push(g); }
+    g.tasks = g.tasks || [];
+    g.tasks.push(newTask);
+  } else {
+    if(opts.day) newTask.day = opts.day;
+    defs[sc] = defs[sc] || [];
+    defs[sc].push(newTask);
+  }
+  await persistTaskDefs();
+}
+async function addGroupToToday(pid, groupName, alert){
+  if(!groupName?.trim() || !TASK_DEFS?.[pid]) return;
+  if((TASK_DEFS[pid].today||[]).some(g => g.group === groupName)) { alert && alert('Group name already exists.'); return; }
+  TASK_DEFS[pid].today = TASK_DEFS[pid].today || [];
+  TASK_DEFS[pid].today.push({group: groupName.trim(), tasks: [], ...(alert?{alert:true}:{})});
+  await persistTaskDefs();
+}
+async function renameGroup(pid, oldName, newName){
+  if(!newName?.trim() || oldName === newName || !TASK_DEFS?.[pid]) return;
+  const g = (TASK_DEFS[pid].today||[]).find(g => g.group === oldName);
+  if(g) g.group = newName.trim();
+  await persistTaskDefs();
+}
+async function deleteGroup(pid, groupName){
+  if(!confirm(`Delete group "${groupName}" and all its tasks?`)) return;
+  if(!TASK_DEFS?.[pid]) return;
+  TASK_DEFS[pid].today = (TASK_DEFS[pid].today||[]).filter(g => g.group !== groupName);
+  await persistTaskDefs();
+}
+
 // === Projects (step 8) ===
 async function persistProjects(){
   syncSt('syncing');
@@ -996,7 +1083,12 @@ function fmtTime(ts){
   const hr = ((h+11)%12)+1; return `${hr}:${m}${h<12?'a':'p'}`;
 }
 
-function taskCard(p, sc, task, rolls, canRemove){
+function taskCard(p, sc, task, rolls, canRemove, editable){
+  // In edit mode, if this task is the one being edited, render inline form instead.
+  if(editable && _editing && _editing.kind === 'taskDef'
+     && _editing.pid === p && _editing.sc === sc && _editing.tid === task.id){
+    return taskEditForm(p, sc, task);
+  }
   const chk = getChecked(p,sc), checkedVal = chk[task.id], done = !!checkedVal;
   const roll = rolls.has(task.id);
   const px = PEOPLE[p];
@@ -1011,19 +1103,75 @@ function taskCard(p, sc, task, rolls, canRemove){
   const noteBlock = noteText ? `<div class="task-note">${noteText}</div>` : '';
   const rmBtn = canRemove
     ? `<button class="remove-btn" onclick="event.stopPropagation();window._rm('${p}','${sc}','${task.id}')" title="Remove">✕</button>` : '';
+  const editBtns = editable ? `
+      <button class="chore-edit-btn" onclick="event.stopPropagation();window._editTask('${p}','${sc}','${task.id}')" title="Edit task">⋯</button>
+      <button class="chore-edit-btn del" onclick="event.stopPropagation();window._delTask('${p}','${sc}','${task.id}')" title="Delete task">✕</button>` : '';
   let meta = '';
   if(done && typeof checkedVal === 'object'){
     const by = checkedVal.by && PEOPLE_META[checkedVal.by] ? PEOPLE_META[checkedVal.by].name : (checkedVal.by||'');
     const at = fmtTime(checkedVal.at);
     if(by || at) meta = `<div class="task-meta">${by?'by '+escHtml(by):''}${by&&at?' · ':''}${at?escHtml(at):''}</div>`;
   }
+  const editBadge = editable && task.rollover ? `<span class="rollover-badge" style="background:rgba(200,168,74,0.1);border-color:rgba(200,168,74,0.3);color:var(--gold)">critical</span>` : '';
   return `<div class="task-card${done?' done':''}" style="${bdr}" onclick="window._tog('${p}','${sc}','${task.id}',event)">
     <div class="task-inner">
       <div class="task-check" style="${chkSt}">${done?'✓':''}</div>
       <div class="task-text">${escHtml(task.text)}</div>
-      ${badge}${noteBtn}${rmBtn}
+      ${badge}${editBadge}${noteBtn}${rmBtn}${editBtns}
     </div>
     ${noteBlock}${meta}
+  </div>`;
+}
+
+// === Task-def inline edit form (step 12) ===
+function taskEditForm(pid, sc, task){
+  const fs = _formScratch;
+  const text = (fs.tdText !== undefined) ? fs.tdText : (task.text||'');
+  const note = (fs.tdNote !== undefined) ? fs.tdNote : (task.note||'');
+  const rollover = (fs.tdRoll !== undefined) ? fs.tdRoll : !!task.rollover;
+  const day = (fs.tdDay !== undefined) ? fs.tdDay : (task.day||'');
+  return `<div class="edit-form show" style="margin-bottom:5px">
+    <div class="edit-form-title">Edit task</div>
+    <div class="edit-row"><input class="edit-input" id="edTaskText" placeholder="Task text" value="${escAttr(text)}"></div>
+    <div class="edit-row"><textarea class="edit-input" id="edTaskNote" placeholder="Optional context note (visible on tap)" style="min-height:50px;resize:vertical">${escHtml(note)}</textarea></div>
+    ${sc==='week' ? `<div class="edit-row"><select class="edit-select" id="edTaskDay">
+      <option value="">No specific day</option>
+      ${DAYS.map(d => `<option value="${d.full.slice(0,3)}"${day===d.full.slice(0,3)?' selected':''}>${d.full}</option>`).join('')}
+    </select></div>` : ''}
+    ${sc==='today' ? `<label style="display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:12px;margin:6px 0 10px;cursor:pointer">
+      <input type="checkbox" id="edTaskRoll" ${rollover?'checked':''} style="width:14px;height:14px">
+      <span>Critical — show as "missed yesterday" if skipped</span>
+    </label>` : ''}
+    <div class="edit-row">
+      <button class="edit-btn" onclick="window._submitTaskDef()">Save</button>
+      <button class="edit-btn subtle" onclick="window._cancelTaskDef()">Cancel</button>
+      <button class="edit-btn danger" style="margin-left:auto" onclick="window._delTask('${pid}','${sc}','${task.id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+function addTaskForm(pid, sc, groupName){
+  const fs = _formScratch;
+  const text = (fs.atText !== undefined) ? fs.atText : '';
+  const note = (fs.atNote !== undefined) ? fs.atNote : '';
+  const rollover = (fs.atRoll !== undefined) ? fs.atRoll : false;
+  const day = (fs.atDay !== undefined) ? fs.atDay : '';
+  return `<div class="edit-form show" style="margin-bottom:5px">
+    <div class="edit-form-title">Add task${groupName?' to '+escHtml(groupName):''}</div>
+    <div class="edit-row"><input class="edit-input" id="addTaskText" placeholder="Task text" value="${escAttr(text)}"></div>
+    <div class="edit-row"><textarea class="edit-input" id="addTaskNote" placeholder="Optional context note" style="min-height:50px;resize:vertical">${escHtml(note)}</textarea></div>
+    ${sc==='week' ? `<div class="edit-row"><select class="edit-select" id="addTaskDay">
+      <option value="">No specific day</option>
+      ${DAYS.map(d => `<option value="${d.full.slice(0,3)}"${day===d.full.slice(0,3)?' selected':''}>${d.full}</option>`).join('')}
+    </select></div>` : ''}
+    ${sc==='today' ? `<label style="display:flex;align-items:center;gap:8px;color:var(--text-dim);font-size:12px;margin:6px 0 10px;cursor:pointer">
+      <input type="checkbox" id="addTaskRoll" ${rollover?'checked':''} style="width:14px;height:14px">
+      <span>Critical — show as "missed yesterday" if skipped</span>
+    </label>` : ''}
+    <div class="edit-row">
+      <button class="edit-btn" onclick="window._submitAddTask()">Add task</button>
+      <button class="edit-btn subtle" onclick="window._cancelTaskDef()">Cancel</button>
+    </div>
   </div>`;
 }
 
@@ -1075,7 +1223,10 @@ function renderPerson(p){
       <div class="stat-box"><div class="stat-val" style="color:${rolls.size>0?'#e74c3c':px.color}">${rolls.size}</div><div class="stat-lbl">Rolled Over</div></div>
       <div class="stat-box"><div class="stat-val" style="color:${px.color}">${st.pct}%</div><div class="stat-lbl">Week</div></div>
     </div>
-    <button class="hd-toggle${hd?' on':''}" onclick="window._hd('${p}')">${hd?'✓ Hard Day · essentials only':'Hard Day — essentials only'}</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      <button class="hd-toggle${hd?' on':''}" style="margin-top:0" onclick="window._hd('${p}')">${hd?'✓ Hard Day · essentials only':'Hard Day — essentials only'}</button>
+      <button class="hd-toggle${_editMode?' on':''}" style="margin-top:0" onclick="window._toggleEditMode()">${_editMode?'✓ Editing tasks':'Edit tasks'}</button>
+    </div>
   </div>`;
 
   if(!started){
@@ -1095,45 +1246,68 @@ function renderPerson(p){
 
   px.today.forEach(g=>{
     const tasks = hd ? (g.tasks||[]).filter(t => t.rollover) : (g.tasks||[]);
-    if(!tasks.length) return;
+    // In edit mode, show group even if empty so user can add to it
+    if(!tasks.length && !_editMode) return;
     const tg = groupKey(g.group);
     let stateCls = '';
-    if(tg && TIME_ORDER[tg]){
+    if(tg && TIME_ORDER[tg] && tasks.length){
       if(tg === nowGrp) stateCls = 'now';
       else if(TIME_ORDER[tg] < TIME_ORDER[nowGrp]){
         const grpDone = tasks.every(t => getChecked(p,'today')[t.id]);
         if(grpDone) stateCls = 'dim';
       }
     }
+    // Group header (with manage controls in edit mode)
     if(g.alert){
-      T += `<div class="alert-card"><div class="alert-title">${escHtml(g.group)}</div>`;
-      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false));
+      T += `<div class="alert-card"><div class="alert-title">${escHtml(g.group)}${_editMode?renderGroupBtns(p,g):''}</div>`;
+      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false,_editMode));
+      if(_editMode) T += renderAddTaskBtnOrForm(p,'today',g.group);
       T += `</div>`;
     } else {
-      T += secH(g.group, undefined, stateCls);
-      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false));
+      T += `<div class="sec-head${stateCls?' '+stateCls:''}"><div class="sec-lbl">${escHtml(g.group)}</div><div class="sec-line"></div>${_editMode?renderGroupBtns(p,g):''}</div>`;
+      tasks.forEach(t => T += taskCard(p,'today',t,rolls,false,_editMode));
+      if(_editMode) T += renderAddTaskBtnOrForm(p,'today',g.group);
     }
   });
+  if(_editMode){
+    T += `<button class="edit-show-btn" onclick="window._addGroup('${p}')">+ Add new group</button>`;
+  }
   const ct = getCustom(p,'today');
-  if(ct.length){ T += secH('My Added Tasks'); ct.forEach(t => T += taskCard(p,'today',t,rolls,true)); }
+  if(ct.length){ T += secH('My Added Tasks'); ct.forEach(t => T += taskCard(p,'today',t,rolls,true,false)); }
   T += addRow(p,'today');
   T += `${secH('Notes for Tina + Mark')}<div class="notes-area"><textarea class="notes-input" placeholder="Anything to flag? Tap to type..." oninput="window._note('${p}',this.value)">${escHtml(getNote(p))}</textarea></div>`;
 
   const wt = allScopeTasks(p,'week'), wd = wt.filter(t => getChecked(p,'week')[t.id]).length;
   let W = secH('This Week\'s Tasks',`${wd}/${wt.length}`);
-  px.week.forEach(t => W += taskCard(p,'week',t,new Set(),false));
+  px.week.forEach(t => W += taskCard(p,'week',t,new Set(),false,_editMode));
+  if(_editMode) W += renderAddTaskBtnOrForm(p,'week',null);
   const cw = getCustom(p,'week');
-  if(cw.length){ W += secH('My Added Tasks'); cw.forEach(t => W += taskCard(p,'week',t,new Set(),true)); }
+  if(cw.length){ W += secH('My Added Tasks'); cw.forEach(t => W += taskCard(p,'week',t,new Set(),true,false)); }
   W += addRow(p,'week');
 
   const mt = allScopeTasks(p,'month'), md = mt.filter(t => getChecked(p,'month')[t.id]).length;
   let M = secH('This Month\'s Tasks',`${md}/${mt.length}`);
-  px.month.forEach(t => M += taskCard(p,'month',t,new Set(),false));
+  px.month.forEach(t => M += taskCard(p,'month',t,new Set(),false,_editMode));
+  if(_editMode) M += renderAddTaskBtnOrForm(p,'month',null);
   const cm = getCustom(p,'month');
-  if(cm.length){ M += secH('My Added Tasks'); cm.forEach(t => M += taskCard(p,'month',t,new Set(),true)); }
+  if(cm.length){ M += secH('My Added Tasks'); cm.forEach(t => M += taskCard(p,'month',t,new Set(),true,false)); }
   M += addRow(p,'month');
 
   return {T,W,M};
+}
+
+function renderGroupBtns(pid, g){
+  return ` <button class="chore-edit-btn" style="margin-left:6px" onclick="window._renGroup('${pid}','${escAttr(g.group)}')" title="Rename group">⋯</button><button class="chore-edit-btn del" onclick="window._delGroup('${pid}','${escAttr(g.group)}')" title="Delete group">✕</button>`;
+}
+
+function renderAddTaskBtnOrForm(pid, sc, groupName){
+  if(_editing && _editing.kind === 'addTask' && _editing.pid === pid && _editing.sc === sc && (_editing.group || null) === (groupName || null)){
+    return addTaskForm(pid, sc, groupName);
+  }
+  const label = groupName
+    ? `+ Add task to ${escHtml(groupName)}`
+    : `+ Add canonical task`;
+  return `<button class="edit-show-btn" style="margin-bottom:8px" onclick="window._addToGroup('${pid}','${sc}',${groupName?`'${escAttr(groupName)}'`:'null'})">${label}</button>`;
 }
 
 function renderCommand(){
@@ -1694,6 +1868,16 @@ function preserveFormState(){
   // Project form
   const pn = document.getElementById('newProjName');
   if(pn) _formScratch.projName = pn.value;
+  // Task-def edit form
+  const tdT = document.getElementById('edTaskText'); if(tdT) _formScratch.tdText = tdT.value;
+  const tdN = document.getElementById('edTaskNote'); if(tdN) _formScratch.tdNote = tdN.value;
+  const tdR = document.getElementById('edTaskRoll'); if(tdR) _formScratch.tdRoll = tdR.checked;
+  const tdD = document.getElementById('edTaskDay');  if(tdD) _formScratch.tdDay  = tdD.value;
+  // Add-task form
+  const atT = document.getElementById('addTaskText'); if(atT) _formScratch.atText = atT.value;
+  const atN = document.getElementById('addTaskNote'); if(atN) _formScratch.atNote = atN.value;
+  const atR = document.getElementById('addTaskRoll'); if(atR) _formScratch.atRoll = atR.checked;
+  const atD = document.getElementById('addTaskDay');  if(atD) _formScratch.atDay  = atD.value;
 }
 
 // === Toggle wrapper — captures event for particle FX (step 3) ===
@@ -1802,6 +1986,66 @@ window._submitShop = async () => {
 window._togLow = (id) => toggleShopLow(id);
 window._setQty = (id, q) => updateShopQty(id, q);
 window._rmShop = (id) => removeShopItem(id);
+
+// === Task-def editor handlers (step 12) ===
+window._toggleEditMode = () => {
+  _editMode = !_editMode;
+  _editing = null; _formOpen = null; _formScratch = {};
+  renderCurrent();
+};
+window._editTask = (pid, sc, tid) => {
+  _editing = {kind:'taskDef', pid, sc, tid};
+  _formOpen = null; _formScratch = {};
+  renderCurrent();
+};
+window._cancelTaskDef = () => { _editing = null; _formScratch = {}; renderCurrent(); };
+window._submitTaskDef = async () => {
+  if(!_editing || _editing.kind !== 'taskDef') return;
+  const text = document.getElementById('edTaskText')?.value || '';
+  if(!text.trim()){ alert('Task needs text.'); return; }
+  const note = document.getElementById('edTaskNote')?.value || '';
+  const patch = {text: text.trim(), note};
+  if(_editing.sc === 'today'){
+    patch.rollover = document.getElementById('edTaskRoll')?.checked || false;
+  }
+  if(_editing.sc === 'week'){
+    patch.day = document.getElementById('edTaskDay')?.value || '';
+  }
+  const {pid, sc, tid} = _editing;
+  _editing = null; _formScratch = {};
+  await editTaskDef(pid, sc, tid, patch);
+};
+window._delTask = async (pid, sc, tid) => {
+  await deleteTaskDef(pid, sc, tid);
+  if(_editing && _editing.tid === tid){ _editing = null; _formScratch = {}; renderCurrent(); }
+};
+window._addToGroup = (pid, sc, groupName) => {
+  _editing = {kind:'addTask', pid, sc, group: groupName || null};
+  _formOpen = null; _formScratch = {};
+  renderCurrent();
+  setTimeout(()=>document.getElementById('addTaskText')?.focus(), 50);
+};
+window._submitAddTask = async () => {
+  if(!_editing || _editing.kind !== 'addTask') return;
+  const text = document.getElementById('addTaskText')?.value || '';
+  if(!text.trim()){ alert('Task needs text.'); return; }
+  const note = document.getElementById('addTaskNote')?.value || '';
+  const opts = { text: text.trim(), group: _editing.group, note };
+  if(_editing.sc === 'today') opts.rollover = document.getElementById('addTaskRoll')?.checked || false;
+  if(_editing.sc === 'week')  opts.day = document.getElementById('addTaskDay')?.value || '';
+  const {pid, sc} = _editing;
+  _editing = null; _formScratch = {};
+  await addTaskDef(pid, sc, opts);
+};
+window._addGroup = async (pid) => {
+  const name = prompt('New group name (e.g. "Morning", "Evening", "After School"):');
+  if(name && name.trim()) await addGroupToToday(pid, name.trim(), false);
+};
+window._renGroup = async (pid, oldName) => {
+  const name = prompt('Rename group:', oldName);
+  if(name && name.trim() && name !== oldName) await renameGroup(pid, oldName, name.trim());
+};
+window._delGroup = (pid, groupName) => deleteGroup(pid, groupName);
 
 function updateDate(){
   const d=new Date();
