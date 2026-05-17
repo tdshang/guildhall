@@ -479,6 +479,7 @@ function subscribeAll(){
       onSnapshot(doc(db,fsCheck(pid,sc,k)),snap=>{
         ensure(pid,sc,k); state[pid][sc][k]=snap.exists()?snap.data():{};
         syncSt('synced');
+        if(window._showApp) window._showApp();
         if(curP===pid||curP==='command') refreshView();
       },e=>{ console.error(e); syncSt('error'); });
     });
@@ -675,17 +676,27 @@ function updateDate(){
   if(el) el.textContent=`${days[d.getDay()]} ${mo[d.getMonth()]} ${d.getDate()}`;
 }
 
-async function init(){
+function init(){
   syncSt('syncing');
-  try{
-    subscribeAll();
-    await new Promise(r=>setTimeout(r,1400));
+  let shown=false;
+  window._showApp=function(){
+    if(shown) return; shown=true;
     document.getElementById('ls').style.display='none';
     buildNav(); updateDate(); renderCurrent(); syncSt('synced');
-  }catch(e){
-    document.getElementById('lmsg').textContent='Connection failed. Check internet and reload.';
-    syncSt('error');
-  }
+  };
+  subscribeAll();
+  // Show app after 6 seconds regardless, in case snapshots are slow
+  setTimeout(()=>{
+    if(!shown){
+      window._showApp();
+    }
+  }, 6000);
+  // Update loading message after 3s if still waiting
+  setTimeout(()=>{
+    if(!shown){
+      document.getElementById('lmsg').textContent='Still connecting... please wait';
+    }
+  }, 3000);
 }
 init();
 setInterval(updateDate,60000);
