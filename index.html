@@ -97,6 +97,8 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 .task-text{flex:1;font-size:13.5px;line-height:1.3}
 .task-card.done .task-text{text-decoration:line-through;color:var(--text-dim)}
 .rollover-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.06em;color:#e74c3c;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:8px;padding:1px 6px;flex-shrink:0}
+.bonus-badge{font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:0.04em;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(200,168,74,0.4);border-radius:8px;padding:1px 7px;flex-shrink:0}
+.task-card.done .bonus-badge{opacity:0.55}
 .remove-btn{opacity:0;font-size:11px;color:var(--red);background:none;border:none;cursor:pointer;padding:0 4px;transition:opacity 0.15s;flex-shrink:0}
 .task-card:hover .remove-btn{opacity:0.6}
 .remove-btn:hover{opacity:1!important}
@@ -679,6 +681,57 @@ function weekEarnings(pid){
   return {done, total, pct, earned: Math.round(pct * WEEK_CAP * 100) / 100};
 }
 
+// === Bonus earnings (per-task $ amounts) ===
+// Stored at earnings/{pid}/bonus/{weekKey} as {[bonusKey]: amount}.
+// Awarded on check, rescinded on uncheck. Amount captured at check time.
+const bonusData = {};  // {[pid]: {[weekKey]: {[bonusKey]: amount}}}
+const fsBonus = (pid, wk) => `earnings/${pid}/bonus/${wk}`;
+const bonusKeyPersonal = (sc, dateKey, tid) => `${sc}__${dateKey}__${tid}`;
+const bonusKeyProject  = (projId, tid) => `proj__${projId}__${tid}`;
+
+function weekBonus(pid){
+  if(!EARNERS.includes(pid)) return 0;
+  const m = bonusData[pid]?.[weekK()] || {};
+  let sum = 0;
+  for(const v of Object.values(m)){ if(typeof v === 'number') sum += v; }
+  return Math.round(sum * 100) / 100;
+}
+
+async function awardBonus(pid, key, amount){
+  if(!EARNERS.includes(pid)) return;
+  const amt = Number(amount);
+  if(!isFinite(amt) || amt <= 0) return;
+  const wk = weekK();
+  bonusData[pid] = bonusData[pid] || {};
+  bonusData[pid][wk] = bonusData[pid][wk] || {};
+  bonusData[pid][wk][key] = Math.round(amt * 100) / 100;
+  try{ await setDoc(doc(db, fsBonus(pid, wk)), bonusData[pid][wk]); }
+  catch(e){ console.error('award bonus', e); }
+}
+
+async function rescindBonus(pid, key){
+  if(!EARNERS.includes(pid)) return;
+  const wk = weekK();
+  if(!bonusData[pid]?.[wk] || !(key in bonusData[pid][wk])) return;
+  delete bonusData[pid][wk][key];
+  try{ await setDoc(doc(db, fsBonus(pid, wk)), bonusData[pid][wk]); }
+  catch(e){ console.error('rescind bonus', e); }
+}
+
+// Find a task definition by id across canonical + custom for a (pid, sc).
+function findTaskByIdFull(pid, sc, tid){
+  if(sc === 'today'){
+    for(const g of (PEOPLE[pid]?.today || [])){
+      const t = (g.tasks || []).find(t => t.id === tid);
+      if(t) return t;
+    }
+  } else {
+    const t = (PEOPLE[pid]?.[sc] || []).find(t => t.id === tid);
+    if(t) return t;
+  }
+  return (custom[pid]?.[sc] || []).find(t => t.id === tid) || null;
+}
+
 function recentChecks(p, sc, limit=6){
   const k = scopeKey(sc), m = state[p]?.[sc]?.[k]||{};
   const arr = [];
@@ -808,7 +861,8 @@ function spawnParticles(x, y, color){
 async function toggleTask(p, sc, tid){
   const k = scopeKey(sc); ensure(p,sc,k);
   const cur = state[p][sc][k][tid];
-  if(cur){
+  const wasChecked = !!cur;
+  if(wasChecked){
     delete state[p][sc][k][tid];
   } else {
     state[p][sc][k][tid] = { at: Date.now(), by: currentActor() };
@@ -816,6 +870,17 @@ async function toggleTask(p, sc, tid){
   syncSt('syncing');
   try{ await setDoc(doc(db,fsCheck(p,sc,k)), state[p][sc][k]); syncSt('synced'); }
   catch(e){ console.error(e); syncSt('error'); }
+  // Bonus: credit OWNER of the task (the pid whose tab it lives on) if earner
+  // and the task carries a $ amount. Captures amount at check time.
+  if(EARNERS.includes(p)){
+    const task = findTaskByIdFull(p, sc, tid);
+    const amt = Number(task?.bonus);
+    if(task && isFinite(amt) && amt > 0){
+      const key = bonusKeyPersonal(sc, k, tid);
+      if(wasChecked) await rescindBonus(p, key);
+      else           await awardBonus(p, key, amt);
+    }
+  }
   refreshView();
 }
 
@@ -829,12 +894,17 @@ async function saveNote(p,text){
   },700);
 }
 
-async function addTask(p,sc,text){
+async function addTask(p,sc,text,bonus){
   if(!text.trim()) return;
   if(!custom[p]) custom[p]={};
   if(!custom[p][sc]) custom[p][sc]=[];
   const id='c_'+Date.now();
-  custom[p][sc].push({id,text:text.trim()});
+  const t = {id, text: text.trim()};
+  if(bonus != null && bonus !== ''){
+    const n = Number(bonus);
+    if(isFinite(n) && n > 0) t.bonus = Math.round(n * 100) / 100;
+  }
+  custom[p][sc].push(t);
   syncSt('syncing');
   try{ await setDoc(doc(db,fsCustom(p,sc)),{tasks:custom[p][sc]}); syncSt('synced'); }
   catch(e){ syncSt('error'); }
@@ -922,6 +992,14 @@ async function persistTaskDefs(){
   catch(e){ console.error(e); syncSt('error'); }
   refreshView();
 }
+function applyBonusPatch(t, patch){
+  if(!('bonus' in patch)) return;
+  const v = patch.bonus;
+  if(v === '' || v == null) { delete t.bonus; return; }
+  const n = Number(v);
+  if(isFinite(n) && n > 0) t.bonus = Math.round(n * 100) / 100;
+  else delete t.bonus;
+}
 async function editTaskDef(pid, sc, tid, patch){
   if(!TASK_DEFS?.[pid]) return;
   const defs = TASK_DEFS[pid];
@@ -936,6 +1014,7 @@ async function editTaskDef(pid, sc, tid, patch){
         if('note' in patch){
           if(patch.note && patch.note.trim()) t.note = patch.note.trim(); else delete t.note;
         }
+        applyBonusPatch(t, patch);
         break;
       }
     }
@@ -945,6 +1024,7 @@ async function editTaskDef(pid, sc, tid, patch){
       if('text' in patch) t.text = patch.text;
       if('day'  in patch){ if(patch.day) t.day = patch.day; else delete t.day; }
       if('note' in patch){ if(patch.note && patch.note.trim()) t.note = patch.note.trim(); else delete t.note; }
+      applyBonusPatch(t, patch);
     }
   }
   await persistTaskDefs();
@@ -967,6 +1047,10 @@ async function addTaskDef(pid, sc, opts){
   const newTask = {id, text: opts.text.trim()};
   if(opts.rollover) newTask.rollover = true;
   if(opts.note && opts.note.trim()) newTask.note = opts.note.trim();
+  if(opts.bonus != null && opts.bonus !== ''){
+    const n = Number(opts.bonus);
+    if(isFinite(n) && n > 0) newTask.bonus = Math.round(n * 100) / 100;
+  }
   if(sc === 'today'){
     const groupName = opts.group || (defs.today[0]?.group || 'Daily');
     let g = (defs.today||[]).find(g => g.group === groupName);
@@ -1031,11 +1115,16 @@ async function renameProject(projId, name){
   p.name = name.trim();
   await persistProjects();
 }
-async function addProjectTask(projId, text, assignees){
+async function addProjectTask(projId, text, assignees, bonus){
   if(!text.trim()) return;
   const p = projects?.projects.find(p => p.id === projId);
   if(!p) return;
-  p.tasks.push({id:'pt_'+Date.now(), text:text.trim(), assignees: assignees||[], done:false});
+  const newTask = {id:'pt_'+Date.now(), text:text.trim(), assignees: assignees||[], done:false};
+  if(bonus != null && bonus !== ''){
+    const n = Number(bonus);
+    if(isFinite(n) && n > 0) newTask.bonus = Math.round(n * 100) / 100;
+  }
+  p.tasks.push(newTask);
   await persistProjects();
 }
 async function toggleProjectTask(projId, taskId){
@@ -1043,10 +1132,21 @@ async function toggleProjectTask(projId, taskId){
   if(!p) return;
   const t = p.tasks.find(t => t.id === taskId);
   if(!t) return;
+  const wasDone = !!t.done;
   t.done = !t.done;
   if(t.done){ t.doneAt = Date.now(); t.doneBy = currentActor(); }
   else { delete t.doneAt; delete t.doneBy; }
   await persistProjects();
+  // Bonus: credit each Connor/Walker assignee. Single completion, no date suffix.
+  const amt = Number(t.bonus);
+  if(isFinite(amt) && amt > 0){
+    const key = bonusKeyProject(projId, taskId);
+    for(const aid of (t.assignees||[])){
+      if(!EARNERS.includes(aid)) continue;
+      if(wasDone) await rescindBonus(aid, key);
+      else        await awardBonus(aid, key, amt);
+    }
+  }
 }
 async function removeProjectTask(projId, taskId){
   const p = projects?.projects.find(p => p.id === projId);
@@ -1121,6 +1221,15 @@ function subscribeAll(){
           if(curP===pid||curP==='command') refreshView();
         });
       });
+      // Bonus earnings doc for this week
+      const wk = weekK();
+      try {
+        onSnapshot(doc(db, fsBonus(pid, wk)), snap => {
+          bonusData[pid] = bonusData[pid] || {};
+          bonusData[pid][wk] = snap.exists() ? snap.data() : {};
+          if(curP===pid||curP==='command') refreshView();
+        }, e => console.error('bonus sub', e));
+      } catch(e){ console.error('bonus sub register', e); }
     }
     onSnapshot(doc(db,fsNote(pid)),snap=>{ notes[pid]=snap.exists()?(snap.data().text||''):''; if(curP===pid||curP==='command') refreshView(); });
     ['today','week','month'].forEach(sc=>{
@@ -1233,23 +1342,37 @@ function taskCard(p, sc, task, rolls, canRemove, editable){
     if(by || at) meta = `<div class="task-meta">${by?'by '+escHtml(by):''}${by&&at?' · ':''}${at?escHtml(at):''}</div>`;
   }
   const editBadge = editable && task.rollover ? `<span class="rollover-badge" style="background:rgba(200,168,74,0.1);border-color:rgba(200,168,74,0.3);color:var(--gold)">critical</span>` : '';
+  const bonusBadge = (EARNERS.includes(p) && Number(task.bonus) > 0)
+    ? `<span class="bonus-badge">+$${Number(task.bonus).toFixed(2)}</span>`
+    : '';
   return `<div class="task-card${done?' done':''}" style="${bdr}" onclick="window._tog('${p}','${sc}','${task.id}',event)">
     <div class="task-inner">
       <div class="task-check" style="${chkSt}">${done?'✓':''}</div>
       <div class="task-text">${escHtml(task.text)}</div>
-      ${badge}${editBadge}${noteBtn}${rmBtn}${editBtns}
+      ${bonusBadge}${badge}${editBadge}${noteBtn}${rmBtn}${editBtns}
     </div>
     ${noteBlock}${meta}
   </div>`;
 }
 
 // === Task-def inline edit form (step 12) ===
+function bonusFieldHtml(pid, idAttr, val){
+  if(!EARNERS.includes(pid)) return '';
+  const v = (val == null || val === '') ? '' : String(val);
+  return `<div class="edit-row" style="align-items:center;gap:6px">
+    <span class="field-lbl" style="width:auto;margin:0">Bonus $</span>
+    <input class="edit-input" id="${idAttr}" inputmode="decimal" placeholder="0.00" value="${escAttr(v)}" style="max-width:100px;flex:0 0 auto">
+    <span style="font-size:11px;color:var(--text-faint);font-style:italic">added to ${PEOPLE_META[pid]?.name||pid}'s bonus per check (blank = none)</span>
+  </div>`;
+}
+
 function taskEditForm(pid, sc, task){
   const fs = _formScratch;
   const text = (fs.tdText !== undefined) ? fs.tdText : (task.text||'');
   const note = (fs.tdNote !== undefined) ? fs.tdNote : (task.note||'');
   const rollover = (fs.tdRoll !== undefined) ? fs.tdRoll : !!task.rollover;
   const day = (fs.tdDay !== undefined) ? fs.tdDay : (task.day||'');
+  const bonus = (fs.tdBonus !== undefined) ? fs.tdBonus : (task.bonus != null ? task.bonus : '');
   return `<div class="edit-form show" style="margin-bottom:5px">
     <div class="edit-form-title">Edit task</div>
     <div class="edit-row"><input class="edit-input" id="edTaskText" placeholder="Task text" value="${escAttr(text)}"></div>
@@ -1262,6 +1385,7 @@ function taskEditForm(pid, sc, task){
       <input type="checkbox" id="edTaskRoll" ${rollover?'checked':''} style="width:14px;height:14px">
       <span>Critical — show as "missed yesterday" if skipped</span>
     </label>` : ''}
+    ${bonusFieldHtml(pid, 'edTaskBonus', bonus)}
     <div class="edit-row">
       <button class="edit-btn" onclick="window._submitTaskDef()">Save</button>
       <button class="edit-btn subtle" onclick="window._cancelTaskDef()">Cancel</button>
@@ -1276,6 +1400,7 @@ function addTaskForm(pid, sc, groupName){
   const note = (fs.atNote !== undefined) ? fs.atNote : '';
   const rollover = (fs.atRoll !== undefined) ? fs.atRoll : false;
   const day = (fs.atDay !== undefined) ? fs.atDay : '';
+  const bonus = (fs.atBonus !== undefined) ? fs.atBonus : '';
   return `<div class="edit-form show" style="margin-bottom:5px">
     <div class="edit-form-title">Add task${groupName?' to '+escHtml(groupName):''}</div>
     <div class="edit-row"><input class="edit-input" id="addTaskText" placeholder="Task text" value="${escAttr(text)}"></div>
@@ -1288,6 +1413,7 @@ function addTaskForm(pid, sc, groupName){
       <input type="checkbox" id="addTaskRoll" ${rollover?'checked':''} style="width:14px;height:14px">
       <span>Critical — show as "missed yesterday" if skipped</span>
     </label>` : ''}
+    ${bonusFieldHtml(pid, 'addTaskBonus', bonus)}
     <div class="edit-row">
       <button class="edit-btn" onclick="window._submitAddTask()">Add task</button>
       <button class="edit-btn subtle" onclick="window._cancelTaskDef()">Cancel</button>
@@ -1301,24 +1427,32 @@ function secH(label, count, stateCls){
 }
 
 function addRow(p,sc){
-  return `<div class="add-task-row"><input class="add-task-input" id="ai_${p}_${sc}" placeholder="Add a task..." onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')"><button class="add-task-btn" onclick="window._add('${p}','${sc}')">+ Add</button></div>`;
+  const earner = EARNERS.includes(p);
+  const bonusInput = earner
+    ? `<input class="add-task-input" id="aib_${p}_${sc}" placeholder="$" inputmode="decimal" style="max-width:70px;flex:0 0 auto" title="Optional bonus $ added per check" onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')">`
+    : '';
+  return `<div class="add-task-row"><input class="add-task-input" id="ai_${p}_${sc}" placeholder="Add a task..." onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')">${bonusInput}<button class="add-task-btn" onclick="window._add('${p}','${sc}')">+ Add</button></div>`;
 }
 
 function renderEarningsBar(pid){
   if(!EARNERS.includes(pid)) return '';
   const we = weekEarnings(pid);
-  const earned = we.earned.toFixed(2);
+  const bonus = weekBonus(pid);
+  const total = Math.round((we.earned + bonus) * 100) / 100;
   const pct = Math.round(we.pct * 100);
   return `<div style="background:linear-gradient(135deg,var(--gold-dim),transparent);border:1px solid rgba(200,168,74,0.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px">
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
       <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);flex:1">Weekly Earnings</div>
-      <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--gold)">$${earned}</div>
-      <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--text-dim)">/ $${WEEK_CAP.toFixed(2)}</div>
+      <div style="font-family:'Cinzel',serif;font-size:24px;font-weight:700;color:var(--gold)">$${total.toFixed(2)}</div>
     </div>
     <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
       <div style="height:100%;background:var(--gold);width:${pct}%;transition:width 0.4s"></div>
     </div>
-    <div style="font-size:11px;color:var(--text-dim);margin-top:5px;font-style:italic">${we.done}/${we.total} task slots this week · ${pct}%</div>
+    <div style="margin-top:8px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.05em;color:var(--text-dim);display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:baseline">
+      <span>Base</span><span style="color:var(--text-faint);font-size:9px">${we.done}/${we.total} slots · ${pct}%</span><span style="color:var(--text)">$${we.earned.toFixed(2)} / $${WEEK_CAP.toFixed(2)}</span>
+      <span>Bonus</span><span style="color:var(--text-faint);font-size:9px">per-task $</span><span style="color:var(--text)">$${bonus.toFixed(2)}</span>
+      <span style="color:var(--gold);font-weight:700">Total</span><span></span><span style="color:var(--gold);font-weight:700">$${total.toFixed(2)}</span>
+    </div>
   </div>`;
 }
 
@@ -1613,16 +1747,21 @@ function renderCommand(){
   T += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">`;
   EARNERS.forEach(pid => {
     const we = weekEarnings(pid);
+    const bonus = weekBonus(pid);
+    const total = Math.round((we.earned + bonus) * 100) / 100;
     const px = PEOPLE[pid];
     const pct = Math.round(we.pct * 100);
     T += `<div class="slip-item" style="cursor:pointer;background:linear-gradient(135deg,${px.soft},transparent);border-color:${px.glow}" onclick="window._goto('${pid}')">
       <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
         <strong style="color:${px.color};flex:1">${px.name}</strong>
-        <span style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold)">$${we.earned.toFixed(2)}</span>
-        <span style="font-family:'Cinzel',serif;font-size:10px;color:var(--text-dim)">/ $${WEEK_CAP.toFixed(2)}</span>
+        <span style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--gold)">$${total.toFixed(2)}</span>
       </div>
       <div class="cmd-bar"><div class="cmd-fill" style="width:${pct}%;background:var(--gold)"></div></div>
-      <div style="font-size:11px;color:var(--text-dim);margin-top:5px">${we.done}/${we.total} · ${pct}%</div>
+      <div style="font-family:'Cinzel',serif;font-size:10px;color:var(--text-dim);margin-top:6px;display:grid;grid-template-columns:auto 1fr auto;gap:2px 8px;letter-spacing:0.04em">
+        <span>Base</span><span></span><span style="color:var(--text)">$${we.earned.toFixed(2)} / $${WEEK_CAP.toFixed(2)}</span>
+        <span>Bonus</span><span></span><span style="color:var(--text)">$${bonus.toFixed(2)}</span>
+        <span style="color:var(--gold)">Total</span><span></span><span style="color:var(--gold);font-weight:700">$${total.toFixed(2)}</span>
+      </div>
     </div>`;
   });
   T += `</div><div class="gold-div"></div>`;
@@ -1780,7 +1919,8 @@ function renderProjectEditForm(){
 
 function renderProjectTaskForm(projId){
   return `<div class="edit-row" style="margin-top:8px">
-    <input class="edit-input" id="newPTtext_${projId}" placeholder="Add a task...">
+    <input class="edit-input" id="newPTtext_${projId}" placeholder="Add a task..." style="flex:3">
+    <input class="edit-input" id="newPTbonus_${projId}" placeholder="$ bonus" inputmode="decimal" style="flex:0 0 110px;max-width:110px" title="Bonus paid to Connor/Walker assignees when checked">
   </div>
   <div class="asg-chips" id="newPTasg_${projId}">
     ${Object.keys(PEOPLE_META).map(pid => `<button type="button" class="asg-chip" data-p="${pid}" onclick="this.classList.toggle('on')">${PEOPLE_META[pid].name}</button>`).join('')}
@@ -1828,10 +1968,11 @@ function renderProjects(){
     if(p.tasks.length){
       p.tasks.forEach(t => {
         const chkSt = t.done ? `background:var(--success);border-color:var(--success);color:white` : `border-color:var(--border-hi)`;
+        const bb = Number(t.bonus) > 0 ? `<span class="bonus-badge">+$${Number(t.bonus).toFixed(2)}</span>` : '';
         T += `<div class="proj-task${t.done?' done':''}" onclick="window._togPT('${p.id}','${t.id}')">
           <div class="task-check" style="${chkSt}">${t.done?'✓':''}</div>
           <div class="proj-task-text">${escHtml(t.text)}</div>
-          ${asgPills(t.assignees)}
+          ${bb}${asgPills(t.assignees)}
           <button class="proj-rm-btn" onclick="event.stopPropagation();window._rmPT('${p.id}','${t.id}')" title="Remove">✕</button>
         </div>`;
       });
@@ -2051,11 +2192,13 @@ function preserveFormState(){
   const tdN = document.getElementById('edTaskNote'); if(tdN) _formScratch.tdNote = tdN.value;
   const tdR = document.getElementById('edTaskRoll'); if(tdR) _formScratch.tdRoll = tdR.checked;
   const tdD = document.getElementById('edTaskDay');  if(tdD) _formScratch.tdDay  = tdD.value;
+  const tdB = document.getElementById('edTaskBonus');if(tdB) _formScratch.tdBonus= tdB.value;
   // Add-task form
   const atT = document.getElementById('addTaskText'); if(atT) _formScratch.atText = atT.value;
   const atN = document.getElementById('addTaskNote'); if(atN) _formScratch.atNote = atN.value;
   const atR = document.getElementById('addTaskRoll'); if(atR) _formScratch.atRoll = atR.checked;
   const atD = document.getElementById('addTaskDay');  if(atD) _formScratch.atDay  = atD.value;
+  const atB = document.getElementById('addTaskBonus');if(atB) _formScratch.atBonus= atB.value;
 }
 
 // === Toggle wrapper — captures event for particle FX (step 3) ===
@@ -2077,7 +2220,13 @@ window._tog = (p, sc, tid, ev) => {
 };
 window._note = (p,t) => saveNote(p,t);
 window._rst  = (sc) => resetScope(sc);
-window._add  = (p,sc) => { const el=document.getElementById(`ai_${p}_${sc}`); if(el){addTask(p,sc,el.value);el.value='';} };
+window._add  = (p,sc) => {
+  const el = document.getElementById(`ai_${p}_${sc}`); if(!el) return;
+  const bEl = document.getElementById(`aib_${p}_${sc}`);
+  const bonus = bEl ? bEl.value : '';
+  addTask(p, sc, el.value, bonus);
+  el.value = ''; if(bEl) bEl.value = '';
+};
 window._rm   = (p,sc,tid) => removeTask(p,sc,tid);
 window._hd   = (p) => toggleHardDay(p);
 window._togNote = (btn) => { const card = btn.closest('.task-card'); if(card) card.classList.toggle('show-note'); };
@@ -2146,8 +2295,9 @@ window._submitProject = async () => {
 window._addPT = async (projId) => {
   const text = document.getElementById('newPTtext_'+projId)?.value || '';
   const assignees = [...document.querySelectorAll('#newPTasg_'+projId+' .asg-chip.on')].map(c => c.dataset.p);
+  const bonus = document.getElementById('newPTbonus_'+projId)?.value || '';
   if(!text.trim()) return;
-  await addProjectTask(projId, text, assignees);
+  await addProjectTask(projId, text, assignees, bonus);
 };
 window._togPT = (projId, tid) => toggleProjectTask(projId, tid);
 window._rmPT = (projId, tid) => removeProjectTask(projId, tid);
@@ -2189,6 +2339,9 @@ window._submitTaskDef = async () => {
   if(_editing.sc === 'week'){
     patch.day = document.getElementById('edTaskDay')?.value || '';
   }
+  // Bonus only present on earners' edit forms
+  const bonusEl = document.getElementById('edTaskBonus');
+  if(bonusEl) patch.bonus = bonusEl.value;
   const {pid, sc, tid} = _editing;
   _editing = null; _formScratch = {};
   await editTaskDef(pid, sc, tid, patch);
@@ -2211,6 +2364,8 @@ window._submitAddTask = async () => {
   const opts = { text: text.trim(), group: _editing.group, note };
   if(_editing.sc === 'today') opts.rollover = document.getElementById('addTaskRoll')?.checked || false;
   if(_editing.sc === 'week')  opts.day = document.getElementById('addTaskDay')?.value || '';
+  const bonusEl = document.getElementById('addTaskBonus');
+  if(bonusEl) opts.bonus = bonusEl.value;
   const {pid, sc} = _editing;
   _editing = null; _formScratch = {};
   await addTaskDef(pid, sc, opts);
