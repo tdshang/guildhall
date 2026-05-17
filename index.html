@@ -1203,6 +1203,99 @@ function renderCommand(){
   }
   T += `<div class="gold-div"></div>`;
 
+  // === Weekly Chores summary (step 10) ===
+  T += secH('Weekly Chores — Today');
+  const td = todayDayKey();
+  const wk = weekK();
+  const ck = choreChecks[wk] || {};
+  if(chores && chores.chores && chores.chores.length){
+    const todays = chores.chores.filter(c => c.day === 'daily' || c.day === td);
+    if(todays.length){
+      todays.forEach(c => {
+        const done = !!(ck[c.id] && ck[c.id][td]);
+        const asg = (c.assignees||[]).map(p => PEOPLE_META[p]?.name).filter(Boolean).join(' · ');
+        T += `<div class="slip-item" style="cursor:pointer" onclick="window._goto('chores')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="color:${done?'var(--success)':'var(--text-faint)'};font-size:14px;width:14px">${done?'✓':'○'}</span>
+            <strong style="flex:1">${escHtml(c.text)}</strong>
+            ${c.day==='daily'?'<span style="font-family:\'Cinzel\',serif;font-size:8px;letter-spacing:0.1em;color:var(--text-faint)">DAILY</span>':''}
+          </div>
+          ${asg?`<div style="margin-top:3px;font-size:11px;color:var(--text-dim)">${escHtml(asg)}</div>`:''}
+        </div>`;
+      });
+    } else {
+      T += `<div class="empty-msg">No chores scheduled for today.</div>`;
+    }
+    // Week summary count
+    const totalSlots = chores.chores.reduce((s,c) => s + (c.day==='daily' ? 7 : 1), 0);
+    let doneCount = 0;
+    chores.chores.forEach(c => {
+      if(c.day === 'daily'){
+        const dc = ck[c.id] || {};
+        doneCount += DAYS.filter(d => dc[d.key]).length;
+      } else if(ck[c.id] && ck[c.id][c.day]) doneCount++;
+    });
+    const pctWeek = totalSlots ? Math.round(doneCount/totalSlots*100) : 0;
+    T += `<div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:8px;font-family:'Cinzel',serif;letter-spacing:0.08em">This Week: ${doneCount} / ${totalSlots} · ${pctWeek}%</div>`;
+  } else if(chores === null){
+    T += `<div class="empty-msg">Loading chores…</div>`;
+  } else {
+    T += `<div class="empty-msg">No chores configured yet.</div>`;
+  }
+  T += `<div class="gold-div"></div>`;
+
+  // === Projects summary (step 10) ===
+  T += secH('Active Projects');
+  if(projects && projects.projects && projects.projects.length){
+    const active = projects.projects.filter(p => (p.status||'active') === 'active');
+    if(active.length){
+      active.forEach(p => {
+        const ps = projectStats(p);
+        const asgSet = new Set();
+        (p.tasks||[]).forEach(t => (t.assignees||[]).forEach(a => asgSet.add(a)));
+        const asg = [...asgSet].map(pid => PEOPLE_META[pid]?.name).filter(Boolean).join(' · ');
+        T += `<div class="slip-item" style="cursor:pointer" onclick="window._goto('projects')">
+          <div style="display:flex;align-items:center;gap:8px">
+            <strong style="flex:1">${escHtml(p.name)}</strong>
+            <span style="font-family:'Cinzel',serif;color:var(--gold);font-size:11px;font-weight:700">${ps.pct}%</span>
+          </div>
+          <div class="cmd-bar" style="margin-top:6px"><div class="cmd-fill" style="width:${ps.pct}%;background:var(--gold)"></div></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text-dim)">${ps.done}/${ps.total} tasks${asg?' · '+escHtml(asg):''}</div>
+        </div>`;
+      });
+    } else {
+      T += `<div class="empty-msg">No active projects.</div>`;
+    }
+    const paused = projects.projects.filter(p => p.status === 'paused').length;
+    const done = projects.projects.filter(p => p.status === 'done').length;
+    if(paused || done){
+      T += `<div style="text-align:center;font-size:11px;color:var(--text-faint);margin-top:6px;font-family:'Cinzel',serif;letter-spacing:0.08em">${paused?paused+' paused':''}${paused&&done?' · ':''}${done?done+' done':''}</div>`;
+    }
+  } else if(projects === null){
+    T += `<div class="empty-msg">Loading projects…</div>`;
+  } else {
+    T += `<div class="empty-msg">No projects yet.</div>`;
+  }
+  T += `<div class="gold-div"></div>`;
+
+  // === Shopping summary (step 10) ===
+  T += secH('Shopping');
+  if(shopping && shopping.items && shopping.items.length){
+    const low = shopping.items.filter(i => i.low);
+    T += `<div class="slip-item" style="cursor:pointer" onclick="window._goto('shop')">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <strong>${shopping.items.length} item${shopping.items.length===1?'':'s'} on list</strong>
+        ${low.length ? `<span style="color:#e74c3c;font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.08em">⚠ ${low.length} RUNNING LOW</span>` : ''}
+      </div>
+      ${low.length ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">${escHtml(low.slice(0,5).map(i=>i.name).join(' · '))}${low.length>5?` <span style="color:var(--text-faint)">+${low.length-5} more</span>`:''}</div>` : ''}
+    </div>`;
+  } else if(shopping === null){
+    T += `<div class="empty-msg">Loading shopping list…</div>`;
+  } else {
+    T += `<div class="empty-msg">Shopping list is empty.</div>`;
+  }
+  T += `<div class="gold-div"></div>`;
+
   T+=secH('Active Notes from Household');
   let anyN=false;
   pids.forEach(pid=>{ const n=getNote(pid); if(!n.trim()) return; anyN=true; T+=`<div class="slip-item"><strong style="color:${PEOPLE[pid].color}">${PEOPLE[pid].name}</strong><div style="margin-top:4px;color:var(--text-dim)">${escHtml(n)}</div></div>`; });
