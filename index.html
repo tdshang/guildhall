@@ -638,6 +638,44 @@ function getMissedYday(p){
 function getNote(p){ return notes[p]||''; }
 function getCustom(p,sc){ return custom[p]?.[sc]||[]; }
 
+// === Earnings (step 13) ===
+// Connor & Walker earn up to $7.50/week, proportional to canonical daily task
+// checks summed across all 7 days of the current week. Custom-added tasks
+// don't count (they're transient).
+const EARNERS = ['connor','walker'];
+const WEEK_CAP = 7.50;
+
+function weekDates(){
+  const arr = [];
+  const m = new Date();
+  m.setDate(m.getDate() - ((m.getDay()+6)%7)); // back to Monday
+  m.setHours(0,0,0,0);
+  for(let i=0; i<7; i++){
+    const d = new Date(m); d.setDate(m.getDate()+i);
+    arr.push(dk(d));
+  }
+  return arr;
+}
+
+function dailyCanonicalTasks(pid){
+  // Tasks from TASK_DEFS only (no custom). Same shape every day this week.
+  return (PEOPLE[pid]?.today || []).flatMap(g => g.tasks || []);
+}
+
+function weekEarnings(pid){
+  if(!EARNERS.includes(pid)) return {done:0, total:0, pct:0, earned:0};
+  const daily = dailyCanonicalTasks(pid);
+  const total = daily.length * 7;
+  if(!total) return {done:0, total:0, pct:0, earned:0};
+  let done = 0;
+  weekDates().forEach(d => {
+    const checks = state[pid]?.today?.[d] || {};
+    daily.forEach(t => { if(checks[t.id]) done++; });
+  });
+  const pct = done / total;
+  return {done, total, pct, earned: Math.round(pct * WEEK_CAP * 100) / 100};
+}
+
 function recentChecks(p, sc, limit=6){
   const k = scopeKey(sc), m = state[p]?.[sc]?.[k]||{};
   const arr = [];
@@ -674,6 +712,71 @@ function syncSt(s){
 function currentActor(){
   if(curP && PEOPLE_META[curP]) return curP;
   return 'tina';
+}
+
+// === Desktop browser notifications (step 15) ===
+const _firstSnap = {};  // path -> true once initial snapshot recorded
+const _seenChecks = {}; // pid.sc.tid -> at  (timestamps we've already surfaced)
+let _notifReady = false;
+
+function setupNotifications(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission === 'granted'){ _notifReady = true; return; }
+  if(Notification.permission === 'denied') return;
+  // Browsers require a user gesture for the prompt — attach to first click
+  const ask = async () => {
+    document.removeEventListener('click', ask, true);
+    try{
+      const res = await Notification.requestPermission();
+      if(res === 'granted') _notifReady = true;
+    }catch(e){}
+  };
+  document.addEventListener('click', ask, true);
+}
+
+function notify(title, body){
+  if(!_notifReady) return;
+  try {
+    const n = new Notification(title, {body, tag: 'guildhall', silent: false});
+    setTimeout(() => n.close(), 6000);
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e){}
+}
+
+function diffChecksAndNotify(pid, sc, key, newData){
+  const path = `${pid}.${sc}.${key}`;
+  if(!_firstSnap[path]){
+    // First time we see this doc — record baseline without notifying
+    _firstSnap[path] = true;
+    for(const [tid, v] of Object.entries(newData||{})){
+      if(v && typeof v === 'object' && v.at){
+        (_seenChecks[pid] = _seenChecks[pid] || {});
+        (_seenChecks[pid][sc] = _seenChecks[pid][sc] || {});
+        _seenChecks[pid][sc][tid] = v.at;
+      }
+    }
+    return;
+  }
+  // Only care about today's check changes for notifications
+  if(sc !== 'today' || key !== todayK()) return;
+  for(const [tid, v] of Object.entries(newData||{})){
+    if(!v || typeof v !== 'object' || !v.at) continue;
+    const seen = _seenChecks[pid]?.[sc]?.[tid];
+    if(seen && seen >= v.at) continue;
+    (_seenChecks[pid] = _seenChecks[pid] || {});
+    (_seenChecks[pid][sc] = _seenChecks[pid][sc] || {});
+    _seenChecks[pid][sc][tid] = v.at;
+    // Skip if same actor as current viewer (likely "you")
+    if(v.by && v.by === currentActor()) continue;
+    const actorName = v.by && PEOPLE_META[v.by] ? PEOPLE_META[v.by].name : 'someone';
+    const ownerName = PEOPLE_META[pid]?.name || pid;
+    const txt = findTaskText(pid, sc, tid);
+    const critical = isRollover(tid);
+    const subject = (v.by === pid)
+      ? `${ownerName} checked off`
+      : `${actorName} checked off for ${ownerName}`;
+    notify(critical ? `⚑ ${subject}` : subject, txt);
+  }
 }
 
 // === Particles (step 3) ===
@@ -995,12 +1098,27 @@ function subscribeAll(){
   Object.keys(PEOPLE).forEach(pid=>{
     pairs.forEach(({sc,k})=>{
       onSnapshot(doc(db,fsCheck(pid,sc,k)),snap=>{
-        ensure(pid,sc,k); state[pid][sc][k]=snap.exists()?snap.data():{};
+        ensure(pid,sc,k);
+        const data = snap.exists()?snap.data():{};
+        // step 15 — diff for notifications before overwriting state
+        diffChecksAndNotify(pid, sc, k, data);
+        state[pid][sc][k] = data;
         syncSt('synced');
         if(window._showApp) window._showApp();
         if(curP===pid||curP==='command') refreshView();
       },e=>{ console.error(e); syncSt('error'); });
     });
+    // step 13 — earners need ALL 7 days of this week to compute proportional pay
+    if(EARNERS.includes(pid)){
+      weekDates().forEach(d => {
+        if(d === todayK() || d === ydayK()) return; // already subscribed
+        onSnapshot(doc(db,fsCheck(pid,'today',d)), snap => {
+          ensure(pid,'today',d);
+          state[pid].today[d] = snap.exists() ? snap.data() : {};
+          if(curP===pid||curP==='command') refreshView();
+        });
+      });
+    }
     onSnapshot(doc(db,fsNote(pid)),snap=>{ notes[pid]=snap.exists()?(snap.data().text||''):''; if(curP===pid||curP==='command') refreshView(); });
     ['today','week','month'].forEach(sc=>{
       onSnapshot(doc(db,fsCustom(pid,sc)),snap=>{
@@ -1184,6 +1302,24 @@ function addRow(p,sc){
   return `<div class="add-task-row"><input class="add-task-input" id="ai_${p}_${sc}" placeholder="Add a task..." onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')"><button class="add-task-btn" onclick="window._add('${p}','${sc}')">+ Add</button></div>`;
 }
 
+function renderEarningsBar(pid){
+  if(!EARNERS.includes(pid)) return '';
+  const we = weekEarnings(pid);
+  const earned = we.earned.toFixed(2);
+  const pct = Math.round(we.pct * 100);
+  return `<div style="background:linear-gradient(135deg,var(--gold-dim),transparent);border:1px solid rgba(200,168,74,0.3);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+      <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--gold);flex:1">Weekly Earnings</div>
+      <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:var(--gold)">$${earned}</div>
+      <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--text-dim)">/ $${WEEK_CAP.toFixed(2)}</div>
+    </div>
+    <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden">
+      <div style="height:100%;background:var(--gold);width:${pct}%;transition:width 0.4s"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:5px;font-style:italic">${we.done}/${we.total} task slots this week · ${pct}%</div>
+  </div>`;
+}
+
 function renderRolloverBanner(p, rolls){
   if(rolls.size === 0) return '';
   const items = allTodayTasks(p).filter(t => rolls.has(t.id))
@@ -1227,7 +1363,7 @@ function renderPerson(p){
       <button class="hd-toggle${hd?' on':''}" style="margin-top:0" onclick="window._hd('${p}')">${hd?'✓ Hard Day · essentials only':'Hard Day — essentials only'}</button>
       <button class="hd-toggle${_editMode?' on':''}" style="margin-top:0" onclick="window._toggleEditMode()">${_editMode?'✓ Editing tasks':'Edit tasks'}</button>
     </div>
-  </div>`;
+  </div>${renderEarningsBar(p)}`;
 
   if(!started){
     hero += `<div class="start-badge">⏳ System starts ${fmtStart()} — no missed indicators yet</div>`;
@@ -1469,6 +1605,25 @@ function renderCommand(){
     T += `<div class="empty-msg">Shopping list is empty.</div>`;
   }
   T += `<div class="gold-div"></div>`;
+
+  // === Earnings summary (step 13) ===
+  T += secH('Weekly Earnings — Connor + Walker');
+  T += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">`;
+  EARNERS.forEach(pid => {
+    const we = weekEarnings(pid);
+    const px = PEOPLE[pid];
+    const pct = Math.round(we.pct * 100);
+    T += `<div class="slip-item" style="cursor:pointer;background:linear-gradient(135deg,${px.soft},transparent);border-color:${px.glow}" onclick="window._goto('${pid}')">
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
+        <strong style="color:${px.color};flex:1">${px.name}</strong>
+        <span style="font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold)">$${we.earned.toFixed(2)}</span>
+        <span style="font-family:'Cinzel',serif;font-size:10px;color:var(--text-dim)">/ $${WEEK_CAP.toFixed(2)}</span>
+      </div>
+      <div class="cmd-bar"><div class="cmd-fill" style="width:${pct}%;background:var(--gold)"></div></div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:5px">${we.done}/${we.total} · ${pct}%</div>
+    </div>`;
+  });
+  T += `</div><div class="gold-div"></div>`;
 
   T+=secH('Active Notes from Household');
   let anyN=false;
@@ -1837,6 +1992,27 @@ function renderCurrent(){
       <div class="tab-panel${curTab==='month'?' active':''}" id="tp_month">${M}</div>`;
   }
   document.getElementById('mainContent').innerHTML = html;
+  updateTitle();
+}
+
+// === Live tab title (step 14) ===
+function updateTitle(){
+  if(!TASK_DEFS){ document.title = 'Guild Hall'; return; }
+  let remaining;
+  if(curP && PEOPLE_META[curP]){
+    const st = personStats(curP);
+    remaining = st.tTotal - st.tDone;
+    document.title = `Guild Hall · ${remaining} remaining`;
+  } else {
+    // Global view (Command Center, Chores, Projects, Shop) — sum today across household
+    let total = 0, done = 0;
+    Object.keys(PEOPLE_META).forEach(pid => {
+      const s = personStats(pid);
+      total += s.tTotal; done += s.tDone;
+    });
+    remaining = total - done;
+    document.title = `Guild Hall · ${remaining} remaining (household)`;
+  }
 }
 
 function refreshView(){
@@ -2066,6 +2242,7 @@ setInterval(()=>{
 
 function init(){
   syncSt('syncing');
+  setupNotifications();
   let shown=false;
   window._showApp=function(){
     if(shown || !TASK_DEFS) return; shown=true;
