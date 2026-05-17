@@ -52,8 +52,13 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 .nav-pill[data-p="walker"].active{background:var(--walker);box-shadow:0 0 10px var(--walker-glow)}
 .nav-pill[data-p="gabe"].active{background:var(--gabe);box-shadow:0 0 10px var(--gabe-glow)}
 .nav-pill[data-p="command"].active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.nav-pill[data-p="chores"].active{background:rgba(200,168,74,0.16);border-color:rgba(200,168,74,0.5);color:var(--gold)}
+.nav-pill[data-p="projects"].active{background:rgba(123,79,191,0.16);border-color:rgba(123,79,191,0.5);color:#a880d8}
+.nav-pill[data-p="shop"].active{background:rgba(46,125,82,0.16);border-color:rgba(46,125,82,0.5);color:#5cb085}
+.nav-divider{width:1px;background:var(--border);margin:4px 4px;flex-shrink:0}
 
 .tab-wrap{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:98px;z-index:98}
+.tab-wrap.hidden{display:none}
 .tab-bar{max-width:860px;margin:0 auto;display:flex}
 .tab-btn{flex:1;padding:10px 6px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-dim);background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
 .tab-btn.active{color:var(--text);border-bottom-color:var(--gold)}
@@ -165,6 +170,102 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
   60% {opacity:0.85}
   100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0.2)}
 }
+
+/* ===== Global tabs (chores / projects / shopping) ===== */
+.global-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+.global-title{font-family:'Cinzel',serif;font-size:18px;font-weight:700;color:var(--gold);letter-spacing:0.04em}
+.global-sub{font-size:12px;color:var(--text-dim);font-style:italic;margin-top:2px}
+
+/* Chores */
+.chore-day{margin-bottom:14px}
+.chore-day-hd{font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.chore-day-hd.today{color:var(--gold)}
+.chore-day-hd.today::after{content:'· today';color:var(--text-faint);font-size:9px;letter-spacing:0.1em;font-weight:400;text-transform:lowercase}
+.chore-item{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;padding:10px 12px;transition:border-color 0.15s,opacity 0.2s;flex-wrap:wrap}
+.chore-item.done{opacity:0.5}
+.chore-item.done .chore-text{text-decoration:line-through;color:var(--text-dim)}
+.chore-text{flex:1;font-size:13px;min-width:120px}
+.chore-asg{display:flex;gap:3px;flex-shrink:0;flex-wrap:wrap}
+.chore-asg-pill{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:8px;color:white;white-space:nowrap}
+.chore-actions{display:flex;gap:4px;flex-shrink:0}
+.chore-edit-btn{opacity:0.4;font-size:12px;color:var(--text-dim);background:none;border:none;cursor:pointer;padding:2px 4px;transition:all 0.15s;flex-shrink:0;line-height:1}
+.chore-item:hover .chore-edit-btn{opacity:0.7}
+.chore-edit-btn:hover{opacity:1!important;color:var(--gold)}
+.chore-edit-btn.del:hover{color:var(--red)}
+.chore-week-row{display:flex;gap:3px;flex-shrink:0}
+.chore-day-cell{width:26px;height:26px;border-radius:5px;border:1px solid var(--border-hi);background:transparent;color:var(--text-dim);font-family:'Cinzel',serif;font-size:9px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.chore-day-cell.today{border-color:var(--gold);color:var(--gold)}
+.chore-day-cell.done{background:var(--success);border-color:var(--success);color:white}
+.chore-day-cell:hover{border-color:var(--text)}
+
+/* Projects */
+.proj-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.proj-card.paused{opacity:0.6}
+.proj-card.done{opacity:0.7}
+.proj-hd{padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.proj-name{flex:1;font-family:'Cinzel',serif;font-size:13px;font-weight:600;letter-spacing:0.02em;color:var(--text)}
+.proj-pct{font-family:'Cinzel',serif;font-size:11px;color:var(--gold);font-weight:700;flex-shrink:0}
+.proj-status-pill{font-family:'Cinzel',serif;font-size:8px;letter-spacing:0.1em;text-transform:uppercase;padding:2px 7px;border-radius:8px;border:1px solid var(--border);color:var(--text-dim);background:transparent;cursor:pointer;flex-shrink:0}
+.proj-status-pill.active{color:var(--success);border-color:rgba(39,174,96,0.4);background:rgba(39,174,96,0.08)}
+.proj-status-pill.paused{color:var(--text-dim);border-color:var(--border-hi)}
+.proj-status-pill.done{color:var(--gold);border-color:rgba(200,168,74,0.4);background:var(--gold-dim)}
+.proj-bar{height:3px;background:rgba(255,255,255,0.05);overflow:hidden}
+.proj-fill{height:100%;background:var(--gold);transition:width 0.4s}
+.proj-body{padding:11px 13px;border-top:1px solid var(--border);display:none}
+.proj-card.open .proj-body{display:block}
+.proj-task{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px dashed var(--border);font-size:13px;cursor:pointer}
+.proj-task:last-child{border-bottom:none}
+.proj-task .task-check{width:18px;height:18px}
+.proj-task.done .proj-task-text{text-decoration:line-through;color:var(--text-dim)}
+.proj-task-text{flex:1}
+.proj-task-asg{display:flex;gap:3px;flex-shrink:0}
+.proj-rm-btn{opacity:0.3;background:none;border:none;color:var(--red);cursor:pointer;font-size:11px;padding:0 4px}
+.proj-task:hover .proj-rm-btn{opacity:0.7}
+.proj-rm-btn:hover{opacity:1!important}
+.proj-actions-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+
+/* Shopping */
+.shop-cat{margin-bottom:16px}
+.shop-cat-hd{font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.shop-cat-count{font-size:10px;color:var(--text-faint);margin-left:auto}
+.shop-item{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;display:flex;align-items:center;gap:10px;padding:10px 12px;flex-wrap:wrap}
+.shop-item.low{border-color:rgba(231,76,60,0.4);background:rgba(231,76,60,0.05)}
+.shop-name{flex:1;font-size:13px;min-width:120px}
+.shop-qty-input{font-family:'Cinzel',serif;font-size:10px;color:var(--text);background:rgba(0,0,0,0.25);border:1px solid var(--border);padding:3px 7px;border-radius:6px;width:60px;text-align:center;outline:none}
+.shop-qty-input:focus{border-color:var(--gold)}
+.shop-low-btn{font-size:10px;font-family:'Cinzel',serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-faint);background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;transition:all 0.15s;flex-shrink:0}
+.shop-low-btn:hover{border-color:var(--border-hi)}
+.shop-low-btn.on{color:#e74c3c;border-color:rgba(231,76,60,0.5);background:rgba(231,76,60,0.1)}
+.shop-rm-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px;opacity:0.4;flex-shrink:0}
+.shop-rm-btn:hover{opacity:1}
+.shop-added-by{font-size:10px;color:var(--text-faint);font-style:italic;flex-shrink:0}
+
+/* Edit / add forms shared by chores/projects/shop */
+.edit-form{background:var(--card);border:1px solid var(--border-hi);border-radius:var(--radius);padding:12px;margin-bottom:12px;display:none}
+.edit-form.show{display:block}
+.edit-form-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.edit-row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.edit-input,.edit-select{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'Crimson Text',Georgia,serif;font-size:13px;outline:none;flex:1;min-width:0}
+.edit-input:focus,.edit-select:focus{border-color:var(--gold)}
+.edit-select{font-family:'Cinzel',serif;font-size:10px;letter-spacing:0.06em;text-transform:uppercase}
+.edit-btn{background:var(--gold-dim);border:1px solid rgba(200,168,74,0.4);color:var(--gold);border-radius:6px;padding:7px 12px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;cursor:pointer;white-space:nowrap;text-transform:uppercase;transition:all 0.2s}
+.edit-btn:hover{background:rgba(200,168,74,0.25)}
+.edit-btn.subtle{background:transparent;border-color:var(--border);color:var(--text-dim)}
+.edit-btn.subtle:hover{color:var(--text);border-color:var(--border-hi);background:transparent}
+.edit-btn.danger{background:var(--red-soft);border-color:rgba(192,57,43,0.4);color:#e74c3c}
+.edit-btn.danger:hover{background:rgba(192,57,43,0.2)}
+.edit-show-btn{background:transparent;border:1px dashed var(--border-hi);color:var(--text-dim);border-radius:6px;padding:9px 14px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;cursor:pointer;text-transform:uppercase;display:block;width:100%;margin-bottom:12px;transition:all 0.2s}
+.edit-show-btn:hover{color:var(--gold);border-color:var(--gold)}
+.asg-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;margin-bottom:8px}
+.asg-chip{font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:14px;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;background:transparent;transition:all 0.15s}
+.asg-chip:hover{border-color:var(--border-hi);color:var(--text)}
+.asg-chip.on{color:white;border-color:transparent}
+.asg-chip[data-p="tina"].on{background:var(--tina)}
+.asg-chip[data-p="mark"].on{background:var(--mark)}
+.asg-chip[data-p="connor"].on{background:var(--connor)}
+.asg-chip[data-p="walker"].on{background:var(--walker)}
+.asg-chip[data-p="gabe"].on{background:var(--gabe)}
+.field-lbl{font-family:'Cinzel',serif;font-size:9px;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;width:100%}
 </style>
 </head>
 <body>
@@ -185,7 +286,7 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 
 <div class="nav-scroll"><div class="nav-inner" id="personNav"></div></div>
 
-<div class="tab-wrap">
+<div class="tab-wrap" id="tabWrap">
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="today"  onclick="switchTab('today')">Today</button>
     <button class="tab-btn"        data-tab="week"   onclick="switchTab('week')">This Week</button>
@@ -232,7 +333,6 @@ function monthK()  { const d=new Date(); return `${d.getFullYear()}-${d.getMonth
 function scopeKey(sc){ return sc==='today'?todayK():sc==='week'?weekK():monthK(); }
 
 // === Time-of-day group context (step 2) ===
-// Morning: until 11:00. Midday: 11:00–17:00. Evening: 17:00+
 function timeGroupNow(){
   const h = new Date().getHours();
   if(h < 11) return 'morning';
@@ -245,8 +345,34 @@ function groupKey(label){
   if(s.includes('morning')) return 'morning';
   if(s.includes('midday')||s.includes('noon')||s.includes('afternoon')) return 'midday';
   if(s.includes('evening')||s.includes('night')) return 'evening';
-  return null; // 'Daily', 'As Able', 'Priority Watch', alert groups — no time context
+  return null;
 }
+
+// Day-of-week helpers for Weekly Chores
+const DAYS = [
+  {key:'mon', short:'M', full:'Monday'},
+  {key:'tue', short:'T', full:'Tuesday'},
+  {key:'wed', short:'W', full:'Wednesday'},
+  {key:'thu', short:'T', full:'Thursday'},
+  {key:'fri', short:'F', full:'Friday'},
+  {key:'sat', short:'S', full:'Saturday'},
+  {key:'sun', short:'S', full:'Sunday'},
+];
+function todayDayKey(){
+  const idx = (new Date().getDay() + 6) % 7; // 0=Mon, 6=Sun
+  return DAYS[idx].key;
+}
+
+// Shopping categories
+const SHOP_CATS = [
+  {key:'groceries', label:'Groceries'},
+  {key:'pet',       label:'Pet Supplies'},
+  {key:'litter',    label:'Litter & Pads'},
+  {key:'cleaning',  label:'Cleaning Supplies'},
+  {key:'paper',     label:'Paper & Household'},
+  {key:'personal',  label:'Personal Care'},
+  {key:'hardware',  label:'Hardware & Misc'},
+];
 
 // === PERSON METADATA (static — colors, roles, names) ===
 const PEOPLE_META = {
@@ -263,8 +389,6 @@ const PEOPLE_META = {
 };
 
 // === DEFAULT TASK DEFS (seeded into config/taskDefs on first run) ===
-// Tasks with rollover:true are critical/non-negotiable; missed yesterday surfaces on today.
-// Tasks may have an optional `note` field — small context paragraph, tap to reveal.
 const DEFAULT_TASK_DEFS = {
   tina:{
     today:[
@@ -439,6 +563,13 @@ const DEFAULT_TASK_DEFS = {
   }
 };
 
+// === Default chores seeded once into chores/recurring ===
+const DEFAULT_CHORES = [
+  {id:'ch1', text:'Mop whole house',          assignees:['connor'], day:'sat'},
+  {id:'ch2', text:'Sweep main floors',        assignees:['walker'], day:'daily'},
+  {id:'ch3', text:'Boys\' bathroom — deep clean', assignees:['connor','walker'], day:'thu'},
+];
+
 // === LIVE TASK DEFS — loaded from Firestore, mirrors DEFAULT_TASK_DEFS shape ===
 let TASK_DEFS = null;
 const PEOPLE = {};
@@ -463,12 +594,25 @@ function isRollover(id){ return _ROLLOVER_CACHE.has(id); }
 
 // STATE
 const state={}, notes={}, custom={}, hardDay={};
+let chores=null;       // {chores: [...]}
+let projects=null;     // {projects: [...]}
+let shopping=null;     // {items: [...]}
+const choreChecks={};  // {[weekKey]: {[choreId]: {[dayKey]: {at,by}}}}
+
+// Form / editor state — survives re-renders by re-populating from these.
+let _formOpen = null;  // 'addChore' | 'addProject' | 'addShop' | null
+let _editing = null;   // {kind: 'chore'|'project'|'shop'|'shopQty', id, projId?} | null
+
 function ensure(p,sc,k){ if(!state[p])state[p]={}; if(!state[p][sc])state[p][sc]={}; if(!state[p][sc][k])state[p][sc][k]={}; }
 
 const fsCheck =(p,sc,k)=>`checks/${p}/${sc}/${k}`;
 const fsNote  =(p)=>`notes/${p}`;
 const fsCustom=(p,sc)=>`custom/${p}/${sc}`;
 const fsHard  =(p)=>`hardDay/${p}`;
+const fsChores=()=>`chores/recurring`;
+const fsChoreCk=(wk)=>`checks/chores/${wk}`;
+const fsProjects=()=>`projects/list`;
+const fsShopping=()=>`shopping/list`;
 
 function getChecked(p,sc){ return state[p]?.[sc]?.[scopeKey(sc)]||{}; }
 function getYChecked(p){ return state[p]?.today?.[ydayK()]||{}; }
@@ -493,7 +637,6 @@ function getMissedYday(p){
 function getNote(p){ return notes[p]||''; }
 function getCustom(p,sc){ return custom[p]?.[sc]||[]; }
 
-// Returns list of recent attribution-aware completions for a person in scope, newest first.
 function recentChecks(p, sc, limit=6){
   const k = scopeKey(sc), m = state[p]?.[sc]?.[k]||{};
   const arr = [];
@@ -526,7 +669,13 @@ function syncSt(s){
   document.getElementById('syncLbl').textContent=s==='synced'?'live':s==='syncing'?'saving...':'offline';
 }
 
-// === Completion FX — particles (step 3) ===
+// "Actor" — best-effort identity for attribution.
+function currentActor(){
+  if(curP && PEOPLE_META[curP]) return curP;
+  return 'tina';
+}
+
+// === Particles (step 3) ===
 function spawnParticles(x, y, color){
   const overlay = document.getElementById('fxOverlay');
   if(!overlay) return;
@@ -543,21 +692,19 @@ function spawnParticles(x, y, color){
     p.style.setProperty('--dx', Math.cos(angle)*dist+'px');
     p.style.setProperty('--dy', Math.sin(angle)*dist+'px');
     overlay.appendChild(p);
-    // Trigger animation on next frame so the transform takes effect
     requestAnimationFrame(()=>p.classList.add('fly'));
     setTimeout(()=>p.remove(), 720);
   }
 }
 
 // === Toggle task — attribution-aware storage (step 4) ===
-// Value is object {at, by} when checked; deleted when unchecked. Truthy check still works.
 async function toggleTask(p, sc, tid){
   const k = scopeKey(sc); ensure(p,sc,k);
   const cur = state[p][sc][k][tid];
   if(cur){
     delete state[p][sc][k][tid];
   } else {
-    state[p][sc][k][tid] = { at: Date.now(), by: (curP==='command' ? 'tina' : curP) };
+    state[p][sc][k][tid] = { at: Date.now(), by: currentActor() };
   }
   syncSt('syncing');
   try{ await setDoc(doc(db,fsCheck(p,sc,k)), state[p][sc][k]); syncSt('synced'); }
@@ -608,7 +755,7 @@ async function resetScope(sc){
   }catch(e){ syncSt('error'); }
 }
 
-// === Hard Day mode (step 5) — persisted per person per day ===
+// === Hard Day mode (step 5) ===
 async function toggleHardDay(p){
   const on = !hardDay[p];
   hardDay[p] = on;
@@ -618,6 +765,141 @@ async function toggleHardDay(p){
     syncSt('synced');
   }catch(e){ syncSt('error'); }
   refreshView();
+}
+
+// === Weekly Chores (step 7) ===
+async function persistChores(){
+  syncSt('syncing');
+  try{ await setDoc(doc(db,fsChores()), chores); syncSt('synced'); refreshView(); }
+  catch(e){ syncSt('error'); }
+}
+async function addChore(text, assignees, day){
+  if(!text.trim() || !assignees.length || !day) return;
+  if(!chores) chores = {chores:[]};
+  chores.chores.push({id:'ch_'+Date.now(), text:text.trim(), assignees, day});
+  await persistChores();
+}
+async function updateChore(id, patch){
+  if(!chores) return;
+  chores.chores = chores.chores.map(c => c.id===id ? {...c, ...patch} : c);
+  await persistChores();
+}
+async function deleteChore(id){
+  if(!chores) return;
+  if(!confirm('Delete this chore?')) return;
+  chores.chores = chores.chores.filter(c => c.id !== id);
+  await persistChores();
+}
+async function toggleChoreCheck(choreId, dayKey){
+  const wk = weekK();
+  if(!choreChecks[wk]) choreChecks[wk] = {};
+  if(!choreChecks[wk][choreId]) choreChecks[wk][choreId] = {};
+  const cur = choreChecks[wk][choreId][dayKey];
+  if(cur){
+    delete choreChecks[wk][choreId][dayKey];
+    if(Object.keys(choreChecks[wk][choreId]).length === 0) delete choreChecks[wk][choreId];
+  } else {
+    choreChecks[wk][choreId][dayKey] = { at: Date.now(), by: currentActor() };
+  }
+  syncSt('syncing');
+  try{ await setDoc(doc(db, fsChoreCk(wk)), choreChecks[wk]); syncSt('synced'); }
+  catch(e){ syncSt('error'); }
+  refreshView();
+}
+
+// === Projects (step 8) ===
+async function persistProjects(){
+  syncSt('syncing');
+  try{ await setDoc(doc(db, fsProjects()), projects); syncSt('synced'); refreshView(); }
+  catch(e){ syncSt('error'); }
+}
+async function addProject(name){
+  if(!name.trim()) return;
+  if(!projects) projects = {projects:[]};
+  projects.projects.push({id:'p_'+Date.now(), name:name.trim(), status:'active', tasks:[], createdAt:Date.now()});
+  await persistProjects();
+}
+async function deleteProject(projId){
+  if(!projects) return;
+  if(!confirm('Delete this project and all its tasks?')) return;
+  projects.projects = projects.projects.filter(p => p.id !== projId);
+  await persistProjects();
+}
+async function cycleProjectStatus(projId){
+  const p = projects?.projects.find(p => p.id === projId);
+  if(!p) return;
+  const next = p.status === 'active' ? 'paused' : p.status === 'paused' ? 'done' : 'active';
+  p.status = next;
+  await persistProjects();
+}
+async function renameProject(projId, name){
+  const p = projects?.projects.find(p => p.id === projId);
+  if(!p || !name.trim()) return;
+  p.name = name.trim();
+  await persistProjects();
+}
+async function addProjectTask(projId, text, assignees){
+  if(!text.trim()) return;
+  const p = projects?.projects.find(p => p.id === projId);
+  if(!p) return;
+  p.tasks.push({id:'pt_'+Date.now(), text:text.trim(), assignees: assignees||[], done:false});
+  await persistProjects();
+}
+async function toggleProjectTask(projId, taskId){
+  const p = projects?.projects.find(p => p.id === projId);
+  if(!p) return;
+  const t = p.tasks.find(t => t.id === taskId);
+  if(!t) return;
+  t.done = !t.done;
+  if(t.done){ t.doneAt = Date.now(); t.doneBy = currentActor(); }
+  else { delete t.doneAt; delete t.doneBy; }
+  await persistProjects();
+}
+async function removeProjectTask(projId, taskId){
+  const p = projects?.projects.find(p => p.id === projId);
+  if(!p) return;
+  p.tasks = p.tasks.filter(t => t.id !== taskId);
+  await persistProjects();
+}
+
+// === Shopping (step 9) ===
+async function persistShopping(){
+  syncSt('syncing');
+  try{ await setDoc(doc(db, fsShopping()), shopping); syncSt('synced'); refreshView(); }
+  catch(e){ syncSt('error'); }
+}
+async function addShopItem(name, category, qty){
+  if(!name.trim() || !category) return;
+  if(!shopping) shopping = {items:[]};
+  shopping.items.push({
+    id: 's_'+Date.now(),
+    name: name.trim(),
+    category,
+    qty: (qty||'').toString().trim(),
+    low: false,
+    addedBy: currentActor(),
+    addedAt: Date.now()
+  });
+  await persistShopping();
+}
+async function removeShopItem(id){
+  if(!shopping) return;
+  shopping.items = shopping.items.filter(i => i.id !== id);
+  await persistShopping();
+}
+async function toggleShopLow(id){
+  if(!shopping) return;
+  const item = shopping.items.find(i => i.id === id);
+  if(!item) return;
+  item.low = !item.low;
+  await persistShopping();
+}
+async function updateShopQty(id, qty){
+  if(!shopping) return;
+  const item = shopping.items.find(i => i.id === id);
+  if(!item) return;
+  item.qty = (qty||'').toString().trim();
+  await persistShopping();
 }
 
 let _checksSubscribed = false;
@@ -640,13 +922,51 @@ function subscribeAll(){
         if(curP===pid||curP==='command') refreshView();
       });
     });
-    // Hard Day (step 5)
     onSnapshot(doc(db,fsHard(pid)),snap=>{
       const d = snap.exists() ? snap.data().date : null;
       hardDay[pid] = (d === todayK());
       if(curP===pid||curP==='command') refreshView();
     });
   });
+  subscribeGlobals();
+}
+
+function subscribeGlobals(){
+  // Chores
+  onSnapshot(doc(db, fsChores()), async snap => {
+    if(!snap.exists()){
+      try{ await setDoc(doc(db, fsChores()), {chores: DEFAULT_CHORES}); }
+      catch(e){ console.error('seed chores', e); }
+      return;
+    }
+    chores = {chores: snap.data().chores || []};
+    refreshView();
+  }, e => console.error(e));
+  // Chore checks (this week)
+  onSnapshot(doc(db, fsChoreCk(weekK())), snap => {
+    choreChecks[weekK()] = snap.exists() ? snap.data() : {};
+    refreshView();
+  }, e => console.error(e));
+  // Projects
+  onSnapshot(doc(db, fsProjects()), async snap => {
+    if(!snap.exists()){
+      try{ await setDoc(doc(db, fsProjects()), {projects: []}); }
+      catch(e){ console.error('seed projects', e); }
+      return;
+    }
+    projects = {projects: snap.data().projects || []};
+    refreshView();
+  }, e => console.error(e));
+  // Shopping
+  onSnapshot(doc(db, fsShopping()), async snap => {
+    if(!snap.exists()){
+      try{ await setDoc(doc(db, fsShopping()), {items: []}); }
+      catch(e){ console.error('seed shopping', e); }
+      return;
+    }
+    shopping = {items: snap.data().items || []};
+    refreshView();
+  }, e => console.error(e));
 }
 
 // === Subscribe to config/taskDefs; seed defaults on first run if missing ===
@@ -656,11 +976,7 @@ function subscribeTaskDefs(){
       try{
         syncSt('syncing');
         await setDoc(doc(db,'config/taskDefs'), DEFAULT_TASK_DEFS);
-        // onSnapshot will re-fire with seeded data
-      }catch(e){
-        console.error('Seed taskDefs failed', e);
-        syncSt('error');
-      }
+      }catch(e){ console.error('Seed taskDefs failed', e); syncSt('error'); }
       return;
     }
     TASK_DEFS = snap.data();
@@ -672,8 +988,8 @@ function subscribeTaskDefs(){
 }
 
 // === RENDER HELPERS ===
-function escAttr(s){ return (s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escAttr(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtTime(ts){
   if(!ts) return '';
   const d = new Date(ts), h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0');
@@ -695,12 +1011,11 @@ function taskCard(p, sc, task, rolls, canRemove){
   const noteBlock = noteText ? `<div class="task-note">${noteText}</div>` : '';
   const rmBtn = canRemove
     ? `<button class="remove-btn" onclick="event.stopPropagation();window._rm('${p}','${sc}','${task.id}')" title="Remove">✕</button>` : '';
-  // Attribution meta (only shown on completed tasks via CSS)
   let meta = '';
   if(done && typeof checkedVal === 'object'){
     const by = checkedVal.by && PEOPLE_META[checkedVal.by] ? PEOPLE_META[checkedVal.by].name : (checkedVal.by||'');
     const at = fmtTime(checkedVal.at);
-    if(by || at) meta = `<div class="task-meta">${by?'by '+by:''}${by&&at?' · ':''}${at||''}</div>`;
+    if(by || at) meta = `<div class="task-meta">${by?'by '+escHtml(by):''}${by&&at?' · ':''}${at?escHtml(at):''}</div>`;
   }
   return `<div class="task-card${done?' done':''}" style="${bdr}" onclick="window._tog('${p}','${sc}','${task.id}',event)">
     <div class="task-inner">
@@ -721,7 +1036,6 @@ function addRow(p,sc){
   return `<div class="add-task-row"><input class="add-task-input" id="ai_${p}_${sc}" placeholder="Add a task..." onkeydown="if(event.key==='Enter')window._add('${p}','${sc}')"><button class="add-task-btn" onclick="window._add('${p}','${sc}')">+ Add</button></div>`;
 }
 
-// === Render rollover banner with 3-cap + show-more (step 6) ===
 function renderRolloverBanner(p, rolls){
   if(rolls.size === 0) return '';
   const items = allTodayTasks(p).filter(t => rolls.has(t.id))
@@ -731,12 +1045,20 @@ function renderRolloverBanner(p, rolls){
     <div class="rollover-bar-title">⚠ ${rolls.size} rolled over from yesterday</div>
     <div class="rollover-bar-list">${escHtml(head.join(', '))}`;
   if(rest.length){
-    const restId = `rovMore_${p}_${Date.now()}`;
+    const restId = `rovMore_${p}`;
     html += `<div id="${restId}" style="display:none;margin-top:4px">${escHtml(rest.join(', '))}</div>
       <button class="more-toggle" data-rid="${restId}" data-more="+${rest.length} more" data-less="hide ${rest.length}" onclick="window._togMore(this)">+${rest.length} more</button>`;
   }
   html += '</div></div>';
   return html;
+}
+
+function asgPills(assignees){
+  if(!assignees || !assignees.length) return '';
+  return `<div class="chore-asg">${assignees.map(pid => {
+    const px = PEOPLE_META[pid]; if(!px) return '';
+    return `<span class="chore-asg-pill" style="background:${px.color}">${px.name}</span>`;
+  }).join('')}</div>`;
 }
 
 function renderPerson(p){
@@ -762,7 +1084,6 @@ function renderPerson(p){
     hero += renderRolloverBanner(p, rolls);
   }
 
-  // TODAY
   let T = hero;
   if(hd){
     T += `<div class="hd-banner">
@@ -794,14 +1115,10 @@ function renderPerson(p){
     }
   });
   const ct = getCustom(p,'today');
-  if(ct.length){
-    T += secH('My Added Tasks');
-    ct.forEach(t => T += taskCard(p,'today',t,rolls,true));
-  }
+  if(ct.length){ T += secH('My Added Tasks'); ct.forEach(t => T += taskCard(p,'today',t,rolls,true)); }
   T += addRow(p,'today');
   T += `${secH('Notes for Tina + Mark')}<div class="notes-area"><textarea class="notes-input" placeholder="Anything to flag? Tap to type..." oninput="window._note('${p}',this.value)">${escHtml(getNote(p))}</textarea></div>`;
 
-  // WEEK
   const wt = allScopeTasks(p,'week'), wd = wt.filter(t => getChecked(p,'week')[t.id]).length;
   let W = secH('This Week\'s Tasks',`${wd}/${wt.length}`);
   px.week.forEach(t => W += taskCard(p,'week',t,new Set(),false));
@@ -809,7 +1126,6 @@ function renderPerson(p){
   if(cw.length){ W += secH('My Added Tasks'); cw.forEach(t => W += taskCard(p,'week',t,new Set(),true)); }
   W += addRow(p,'week');
 
-  // MONTH
   const mt = allScopeTasks(p,'month'), md = mt.filter(t => getChecked(p,'month')[t.id]).length;
   let M = secH('This Month\'s Tasks',`${md}/${mt.length}`);
   px.month.forEach(t => M += taskCard(p,'month',t,new Set(),false));
@@ -863,7 +1179,6 @@ function renderCommand(){
     T+=`<div class="gold-div"></div>`;
   }
 
-  // Recent activity (step 4)
   T += secH('Recent Activity — Today');
   const allRecent = [];
   pids.forEach(pid => {
@@ -911,12 +1226,313 @@ function renderCommand(){
   return {T,W,M};
 }
 
-// ROUTING
+// === Weekly Chores tab (step 7) ===
+function renderChoreEditForm(){
+  const editing = (_editing && _editing.kind === 'chore')
+    ? chores?.chores.find(c => c.id === _editing.id) : null;
+  // For NEW entries, preserve typed-but-unsaved scratch across re-renders.
+  // For EDITS, scratch overrides the stored entity (user is mid-typing).
+  const fs = _formScratch;
+  const formText = (fs.choreText !== undefined) ? fs.choreText : (editing ? editing.text : '');
+  const formDay  = (fs.choreDay  !== undefined) ? fs.choreDay  : (editing ? editing.day  : 'daily');
+  const formAsg  = (fs.choreAsg  !== undefined) ? fs.choreAsg  : (editing ? (editing.assignees||[]) : []);
+  const show = _formOpen === 'addChore' || !!editing;
+  const title = editing ? 'Edit chore' : 'New chore';
+  return `<div class="edit-form${show?' show':''}" id="addChoreForm">
+    <div class="edit-form-title">${title}</div>
+    <div class="edit-row"><input class="edit-input" id="newChoreText" placeholder="What needs doing?" value="${escAttr(formText)}"></div>
+    <div class="field-lbl">Day</div>
+    <div class="edit-row"><select class="edit-select" id="newChoreDay">
+      <option value="daily"${formDay==='daily'?' selected':''}>Daily (every day)</option>
+      ${DAYS.map(d => `<option value="${d.key}"${formDay===d.key?' selected':''}>${d.full}</option>`).join('')}
+    </select></div>
+    <div class="field-lbl">Assignees</div>
+    <div class="asg-chips" id="newChoreAsg">
+      ${Object.keys(PEOPLE_META).map(pid => `<button type="button" class="asg-chip${formAsg.includes(pid)?' on':''}" data-p="${pid}" onclick="this.classList.toggle('on')">${PEOPLE_META[pid].name}</button>`).join('')}
+    </div>
+    <div class="edit-row">
+      <button class="edit-btn" onclick="window._submitChore()">${editing?'Save changes':'Save chore'}</button>
+      <button class="edit-btn subtle" onclick="window._cancelChore()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderChores(){
+  let T = `<div class="global-header">
+    <div>
+      <div class="global-title">Weekly Chores</div>
+      <div class="global-sub">Recurring chores by day. Resets each Monday.</div>
+    </div>
+  </div>`;
+
+  T += `<button class="edit-show-btn" onclick="window._openForm('addChore')">+ Add a chore</button>`;
+  T += renderChoreEditForm();
+
+  if(chores === null){
+    T += `<div class="empty-msg">Loading chores…</div>`;
+    return T;
+  }
+  if(!chores.chores.length){
+    T += `<div class="empty-msg">No chores yet. Add one above.</div>`;
+    return T;
+  }
+
+  const list = chores.chores;
+  const wk = weekK();
+  const ck = choreChecks[wk] || {};
+  const td = todayDayKey();
+
+  const dailyChores = list.filter(c => c.day === 'daily');
+  const byDay = {};
+  DAYS.forEach(d => byDay[d.key] = []);
+  list.forEach(c => { if(c.day !== 'daily' && byDay[c.day]) byDay[c.day].push(c); });
+
+  if(dailyChores.length){
+    T += `<div class="chore-day">
+      <div class="chore-day-hd">Daily — every day this week</div>`;
+    dailyChores.forEach(c => {
+      const dayChecks = ck[c.id] || {};
+      T += `<div class="chore-item">
+        <div class="chore-text">${escHtml(c.text)}</div>
+        ${asgPills(c.assignees)}
+        <div class="chore-week-row">${DAYS.map(d => {
+          const done = !!dayChecks[d.key], isToday = d.key === td;
+          const cls = ['chore-day-cell', done?'done':'', isToday?'today':''].filter(Boolean).join(' ');
+          return `<button class="${cls}" onclick="window._togChore('${c.id}','${d.key}')" title="${d.full}">${d.short}</button>`;
+        }).join('')}</div>
+        <div class="chore-actions">
+          <button class="chore-edit-btn" onclick="window._editChore('${c.id}')" title="Edit">⋯</button>
+          <button class="chore-edit-btn del" onclick="window._delChore('${c.id}')" title="Delete">✕</button>
+        </div>
+      </div>`;
+    });
+    T += `</div>`;
+  }
+
+  DAYS.forEach(d => {
+    if(!byDay[d.key].length) return;
+    const isToday = d.key === td;
+    T += `<div class="chore-day">
+      <div class="chore-day-hd${isToday?' today':''}">${d.full}</div>`;
+    byDay[d.key].forEach(c => {
+      const done = !!(ck[c.id] && ck[c.id][d.key]);
+      const chkSt = done
+        ? `background:var(--success);border-color:var(--success);color:white`
+        : `border-color:var(--border-hi)`;
+      T += `<div class="chore-item${done?' done':''}" onclick="window._togChore('${c.id}','${d.key}')">
+        <div class="task-check" style="${chkSt}">${done?'✓':''}</div>
+        <div class="chore-text">${escHtml(c.text)}</div>
+        ${asgPills(c.assignees)}
+        <div class="chore-actions">
+          <button class="chore-edit-btn" onclick="event.stopPropagation();window._editChore('${c.id}')" title="Edit">⋯</button>
+          <button class="chore-edit-btn del" onclick="event.stopPropagation();window._delChore('${c.id}')" title="Delete">✕</button>
+        </div>
+      </div>`;
+    });
+    T += `</div>`;
+  });
+
+  return T;
+}
+
+// === Projects tab (step 8) ===
+function projectStats(p){
+  const total = p.tasks.length, done = p.tasks.filter(t => t.done).length;
+  return {total, done, pct: total ? Math.round(done/total*100) : 0};
+}
+
+function renderProjectEditForm(){
+  const show = _formOpen === 'addProject';
+  const name = (_formScratch.projName !== undefined) ? _formScratch.projName : '';
+  return `<div class="edit-form${show?' show':''}" id="addProjectForm">
+    <div class="edit-form-title">New project</div>
+    <div class="edit-row"><input class="edit-input" id="newProjName" placeholder="Project name (e.g. Garage cleanout)" value="${escAttr(name)}"></div>
+    <div class="edit-row">
+      <button class="edit-btn" onclick="window._submitProject()">Create project</button>
+      <button class="edit-btn subtle" onclick="window._closeForm()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderProjectTaskForm(projId){
+  return `<div class="edit-row" style="margin-top:8px">
+    <input class="edit-input" id="newPTtext_${projId}" placeholder="Add a task...">
+  </div>
+  <div class="asg-chips" id="newPTasg_${projId}">
+    ${Object.keys(PEOPLE_META).map(pid => `<button type="button" class="asg-chip" data-p="${pid}" onclick="this.classList.toggle('on')">${PEOPLE_META[pid].name}</button>`).join('')}
+  </div>
+  <div class="edit-row">
+    <button class="edit-btn" onclick="window._addPT('${projId}')">+ Add task</button>
+  </div>`;
+}
+
+function renderProjects(){
+  let T = `<div class="global-header">
+    <div>
+      <div class="global-title">Projects</div>
+      <div class="global-sub">Named multi-step efforts. Assign anyone, track progress, mark done.</div>
+    </div>
+  </div>`;
+
+  T += `<button class="edit-show-btn" onclick="window._openForm('addProject')">+ New project</button>`;
+  T += renderProjectEditForm();
+
+  if(projects === null){
+    T += `<div class="empty-msg">Loading projects…</div>`;
+    return T;
+  }
+  if(!projects.projects.length){
+    T += `<div class="empty-msg">No projects yet. Start one above.</div>`;
+    return T;
+  }
+
+  // Order: active first, then paused, then done
+  const order = {active:0, paused:1, done:2};
+  const sorted = [...projects.projects].sort((a,b) => (order[a.status]??0) - (order[b.status]??0));
+
+  sorted.forEach(p => {
+    const ps = projectStats(p);
+    const openCls = (_editing && _editing.kind === 'project' && _editing.id === p.id) ? ' open' : '';
+    T += `<div class="proj-card ${p.status||'active'}${openCls}" id="proj_${p.id}">
+      <div class="proj-hd" onclick="window._togProj('${p.id}')">
+        <div class="proj-name">${escHtml(p.name)}</div>
+        <button class="proj-status-pill ${p.status||'active'}" onclick="event.stopPropagation();window._cyProj('${p.id}')" title="Cycle status">${p.status||'active'}</button>
+        <div class="proj-pct">${ps.pct}%</div>
+      </div>
+      <div class="proj-bar"><div class="proj-fill" style="width:${ps.pct}%"></div></div>
+      <div class="proj-body">`;
+    if(p.tasks.length){
+      p.tasks.forEach(t => {
+        const chkSt = t.done ? `background:var(--success);border-color:var(--success);color:white` : `border-color:var(--border-hi)`;
+        T += `<div class="proj-task${t.done?' done':''}" onclick="window._togPT('${p.id}','${t.id}')">
+          <div class="task-check" style="${chkSt}">${t.done?'✓':''}</div>
+          <div class="proj-task-text">${escHtml(t.text)}</div>
+          ${asgPills(t.assignees)}
+          <button class="proj-rm-btn" onclick="event.stopPropagation();window._rmPT('${p.id}','${t.id}')" title="Remove">✕</button>
+        </div>`;
+      });
+    } else {
+      T += `<div class="empty-msg" style="padding:8px">No tasks yet.</div>`;
+    }
+    T += renderProjectTaskForm(p.id);
+    T += `<div class="proj-actions-row">
+      <button class="edit-btn subtle" onclick="window._renProj('${p.id}')">Rename</button>
+      <button class="edit-btn danger" onclick="window._delProj('${p.id}')">Delete project</button>
+    </div></div></div>`;
+  });
+
+  return T;
+}
+
+// === Shopping tab (step 9) ===
+function renderShopForm(){
+  const show = _formOpen === 'addShop';
+  const fs = _formScratch;
+  const sName = (fs.shopName !== undefined) ? fs.shopName : '';
+  const sCat  = (fs.shopCat  !== undefined) ? fs.shopCat  : SHOP_CATS[0].key;
+  const sQty  = (fs.shopQty  !== undefined) ? fs.shopQty  : '';
+  return `<div class="edit-form${show?' show':''}" id="addShopForm">
+    <div class="edit-form-title">Add to shopping list</div>
+    <div class="edit-row"><input class="edit-input" id="newShopName" placeholder="What do we need?" value="${escAttr(sName)}"></div>
+    <div class="edit-row">
+      <select class="edit-select" id="newShopCat" style="flex:2">
+        ${SHOP_CATS.map(c => `<option value="${c.key}"${sCat===c.key?' selected':''}>${c.label}</option>`).join('')}
+      </select>
+      <input class="edit-input" id="newShopQty" placeholder="Qty (optional)" style="flex:1;max-width:120px" value="${escAttr(sQty)}">
+    </div>
+    <div class="edit-row">
+      <button class="edit-btn" onclick="window._submitShop()">Add to list</button>
+      <button class="edit-btn subtle" onclick="window._closeForm()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderShopping(){
+  let T = `<div class="global-header">
+    <div>
+      <div class="global-title">Shopping List</div>
+      <div class="global-sub">Shared list — anyone can add. Mark items running low for next run.</div>
+    </div>
+  </div>`;
+
+  T += `<button class="edit-show-btn" onclick="window._openForm('addShop')">+ Add an item</button>`;
+  T += renderShopForm();
+
+  if(shopping === null){
+    T += `<div class="empty-msg">Loading shopping list…</div>`;
+    return T;
+  }
+  if(!shopping.items.length){
+    T += `<div class="empty-msg">Shopping list is empty.</div>`;
+    return T;
+  }
+
+  // Group items by category in defined order; uncategorized last.
+  const byCat = {};
+  SHOP_CATS.forEach(c => byCat[c.key] = []);
+  shopping.items.forEach(it => {
+    if(byCat[it.category]) byCat[it.category].push(it);
+    else { (byCat._misc = byCat._misc || []).push(it); }
+  });
+
+  // Low items first within each category
+  Object.values(byCat).forEach(arr => arr.sort((a,b) => (b.low?1:0) - (a.low?1:0)));
+
+  // Render: any low items get pulled into a top "Running Low" section for visibility
+  const lowAll = shopping.items.filter(i => i.low);
+  if(lowAll.length){
+    T += `<div class="shop-cat">
+      <div class="shop-cat-hd" style="color:#e74c3c">⚠ Running Low<span class="shop-cat-count">${lowAll.length}</span></div>`;
+    lowAll.forEach(it => T += renderShopItem(it));
+    T += `</div>`;
+  }
+
+  SHOP_CATS.forEach(c => {
+    const items = byCat[c.key] || [];
+    if(!items.length) return;
+    T += `<div class="shop-cat">
+      <div class="shop-cat-hd">${c.label}<span class="shop-cat-count">${items.length}</span></div>`;
+    items.forEach(it => T += renderShopItem(it));
+    T += `</div>`;
+  });
+
+  const misc = byCat._misc || [];
+  if(misc.length){
+    T += `<div class="shop-cat">
+      <div class="shop-cat-hd">Other<span class="shop-cat-count">${misc.length}</span></div>`;
+    misc.forEach(it => T += renderShopItem(it));
+    T += `</div>`;
+  }
+
+  return T;
+}
+
+function renderShopItem(it){
+  const byName = it.addedBy && PEOPLE_META[it.addedBy] ? PEOPLE_META[it.addedBy].name : '';
+  return `<div class="shop-item${it.low?' low':''}">
+    <div class="shop-name">${escHtml(it.name)}</div>
+    <input class="shop-qty-input" value="${escAttr(it.qty||'')}" placeholder="qty" onblur="window._setQty('${it.id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+    <button class="shop-low-btn${it.low?' on':''}" onclick="window._togLow('${it.id}')">${it.low?'• low':'low?'}</button>
+    ${byName ? `<span class="shop-added-by">${escHtml(byName)}</span>` : ''}
+    <button class="shop-rm-btn" onclick="window._rmShop('${it.id}')" title="Remove">✕</button>
+  </div>`;
+}
+
+// === ROUTING ===
 let curP='tina', curTab='today';
+const PERSON_PIDS = () => Object.keys(PEOPLE_META);
+const GLOBAL_TABS = new Set(['chores','projects','shop','command']);
 
 function buildNav(){
-  const nav=document.getElementById('personNav');
-  nav.innerHTML=[...Object.keys(PEOPLE),'command'].map(pid=>`<button class="nav-pill${pid===curP?' active':''}" data-p="${pid}" onclick="window._goto('${pid}')">${pid==='command'?'⚔ Command':PEOPLE[pid].name}</button>`).join('');
+  const nav = document.getElementById('personNav');
+  const personPills = PERSON_PIDS().map(pid => `<button class="nav-pill${pid===curP?' active':''}" data-p="${pid}" onclick="window._goto('${pid}')">${PEOPLE_META[pid].name}</button>`).join('');
+  const globalPills = [
+    ['chores',  '⚒ Chores'],
+    ['projects','◆ Projects'],
+    ['shop',    '🛒 Shop'],
+    ['command', '⚔ Command'],
+  ].map(([pid,label]) => `<button class="nav-pill${pid===curP?' active':''}" data-p="${pid}" onclick="window._goto('${pid}')">${label}</button>`).join('');
+  nav.innerHTML = personPills + '<div class="nav-divider"></div>' + globalPills;
 }
 
 window.switchTab=function(tab){
@@ -926,19 +1542,66 @@ window.switchTab=function(tab){
 };
 
 window._goto=function(p){
-  curP=p; buildNav(); renderCurrent(); window.scrollTo({top:0,behavior:'smooth'});
+  // Reset transient editor state when switching contexts
+  _formOpen = null; _editing = null; _formScratch = {};
+  curP=p; buildNav(); updateTabBarVisibility(); renderCurrent(); window.scrollTo({top:0,behavior:'smooth'});
 };
+
+function updateTabBarVisibility(){
+  const tw = document.getElementById('tabWrap');
+  if(!tw) return;
+  tw.classList.toggle('hidden', GLOBAL_TABS.has(curP) && curP !== 'command');
+}
 
 function renderCurrent(){
   if(!TASK_DEFS) return;
-  const {T,W,M}=curP==='command'?renderCommand():renderPerson(curP);
-  document.getElementById('mainContent').innerHTML=`
-    <div class="tab-panel${curTab==='today'?' active':''}" id="tp_today">${T}</div>
-    <div class="tab-panel${curTab==='week'?' active':''}"  id="tp_week">${W}</div>
-    <div class="tab-panel${curTab==='month'?' active':''}" id="tp_month">${M}</div>`;
+  let html;
+  if(curP === 'chores'){
+    html = `<div class="tab-panel active">${renderChores()}</div>`;
+  } else if(curP === 'projects'){
+    html = `<div class="tab-panel active">${renderProjects()}</div>`;
+  } else if(curP === 'shop'){
+    html = `<div class="tab-panel active">${renderShopping()}</div>`;
+  } else {
+    const {T,W,M} = curP==='command' ? renderCommand() : renderPerson(curP);
+    html = `
+      <div class="tab-panel${curTab==='today'?' active':''}" id="tp_today">${T}</div>
+      <div class="tab-panel${curTab==='week'?' active':''}"  id="tp_week">${W}</div>
+      <div class="tab-panel${curTab==='month'?' active':''}" id="tp_month">${M}</div>`;
+  }
+  document.getElementById('mainContent').innerHTML = html;
 }
 
-function refreshView(){ if(document.getElementById('ls').style.display==='none') renderCurrent(); }
+function refreshView(){
+  // If an inline edit form has unsaved typed state, capture it before re-render
+  // so the user doesn't lose what they typed when another client's snapshot arrives.
+  preserveFormState();
+  if(document.getElementById('ls').style.display==='none') renderCurrent();
+}
+
+// Preserve transient text typed into the open form across re-renders.
+// Reads DOM values into module state, then renderChoreEditForm/renderShopForm
+// re-emit those values when they next render.
+let _formScratch = {};
+function preserveFormState(){
+  // Chore form
+  const ct = document.getElementById('newChoreText');
+  if(ct) _formScratch.choreText = ct.value;
+  const cd = document.getElementById('newChoreDay');
+  if(cd) _formScratch.choreDay = cd.value;
+  const ca = document.querySelectorAll('#newChoreAsg .asg-chip.on');
+  if(ca) _formScratch.choreAsg = [...ca].map(c => c.dataset.p);
+  // Shop form
+  const sn = document.getElementById('newShopName');
+  if(sn) _formScratch.shopName = sn.value;
+  const sc = document.getElementById('newShopCat');
+  if(sc) _formScratch.shopCat = sc.value;
+  const sq = document.getElementById('newShopQty');
+  if(sq) _formScratch.shopQty = sq.value;
+  // Project form
+  const pn = document.getElementById('newProjName');
+  if(pn) _formScratch.projName = pn.value;
+}
 
 // === Toggle wrapper — captures event for particle FX (step 3) ===
 window._tog = (p, sc, tid, ev) => {
@@ -971,6 +1634,82 @@ window._togMore = (btn) => {
   btn.textContent = showing ? btn.dataset.more : btn.dataset.less;
 };
 
+// Form open/close + submit handlers
+window._openForm = (which) => {
+  _formOpen = which; _editing = null; _formScratch = {};
+  renderCurrent();
+  setTimeout(() => {
+    const ids = {addChore:'newChoreText', addProject:'newProjName', addShop:'newShopName'};
+    const el = document.getElementById(ids[which]); if(el) el.focus();
+  }, 50);
+};
+window._closeForm = () => { _formOpen = null; _editing = null; _formScratch = {}; renderCurrent(); };
+
+// Chores
+window._togChore = (id, day) => toggleChoreCheck(id, day);
+window._editChore = (id) => {
+  _editing = {kind:'chore', id};
+  _formOpen = null;
+  _formScratch = {};
+  renderCurrent();
+  document.getElementById('addChoreForm')?.scrollIntoView({behavior:'smooth', block:'center'});
+};
+window._cancelChore = () => { _editing = null; _formOpen = null; _formScratch = {}; renderCurrent(); };
+window._submitChore = async () => {
+  const text = document.getElementById('newChoreText')?.value || '';
+  const day = document.getElementById('newChoreDay')?.value || 'daily';
+  const assignees = [...document.querySelectorAll('#newChoreAsg .asg-chip.on')].map(c => c.dataset.p);
+  if(!text.trim() || !assignees.length){ alert('Need a description and at least one assignee.'); return; }
+  if(_editing && _editing.kind === 'chore'){
+    await updateChore(_editing.id, {text:text.trim(), day, assignees});
+  } else {
+    await addChore(text, assignees, day);
+  }
+  _editing = null; _formOpen = null; _formScratch = {};
+};
+window._delChore = (id) => deleteChore(id);
+
+// Projects
+window._togProj = (id) => {
+  // Toggle expand inline
+  _editing = (_editing && _editing.kind==='project' && _editing.id===id) ? null : {kind:'project', id};
+  renderCurrent();
+};
+window._cyProj = (id) => cycleProjectStatus(id);
+window._renProj = async (id) => {
+  const p = projects?.projects.find(p => p.id === id); if(!p) return;
+  const name = prompt('Rename project:', p.name);
+  if(name && name.trim() && name !== p.name) await renameProject(id, name);
+};
+window._delProj = (id) => deleteProject(id);
+window._submitProject = async () => {
+  const name = document.getElementById('newProjName')?.value || '';
+  if(!name.trim()){ alert('Need a project name.'); return; }
+  await addProject(name);
+  _formOpen = null; _formScratch = {};
+};
+window._addPT = async (projId) => {
+  const text = document.getElementById('newPTtext_'+projId)?.value || '';
+  const assignees = [...document.querySelectorAll('#newPTasg_'+projId+' .asg-chip.on')].map(c => c.dataset.p);
+  if(!text.trim()) return;
+  await addProjectTask(projId, text, assignees);
+};
+window._togPT = (projId, tid) => toggleProjectTask(projId, tid);
+window._rmPT = (projId, tid) => removeProjectTask(projId, tid);
+
+// Shopping
+window._submitShop = async () => {
+  const name = document.getElementById('newShopName')?.value || '';
+  const cat = document.getElementById('newShopCat')?.value || SHOP_CATS[0].key;
+  const qty = document.getElementById('newShopQty')?.value || '';
+  if(!name.trim()){ alert('Need an item name.'); return; }
+  await addShopItem(name, cat, qty);
+  _formOpen = null; _formScratch = {};
+};
+window._togLow = (id) => toggleShopLow(id);
+window._setQty = (id, q) => updateShopQty(id, q);
+window._rmShop = (id) => removeShopItem(id);
+
 function updateDate(){
   const d=new Date();
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -979,7 +1718,6 @@ function updateDate(){
   if(el) el.textContent=`${days[d.getDay()]} ${mo[d.getMonth()]} ${d.getDate()}`;
 }
 
-// Re-render every 10 min so time-of-day highlighting moves through the day even if idle.
 let _lastTimeGroup = timeGroupNow();
 setInterval(()=>{
   const g = timeGroupNow();
@@ -995,7 +1733,7 @@ function init(){
   window._showApp=function(){
     if(shown || !TASK_DEFS) return; shown=true;
     document.getElementById('ls').style.display='none';
-    buildNav(); updateDate(); renderCurrent(); syncSt('synced');
+    buildNav(); updateTabBarVisibility(); updateDate(); renderCurrent(); syncSt('synced');
   };
   subscribeTaskDefs();
   setTimeout(()=>{
