@@ -611,7 +611,10 @@ const fsNote  =(p)=>`notes/${p}`;
 const fsCustom=(p,sc)=>`custom/${p}/${sc}`;
 const fsHard  =(p)=>`hardDay/${p}`;
 const fsChores=()=>`chores/recurring`;
-const fsChoreCk=(wk)=>`checks/chores/${wk}`;
+// 2-segment path (collection/document) — Firestore document refs must be even length.
+// Prior `checks/chores/{wk}` (3 segments) threw at doc() and aborted subscribeGlobals
+// before projects/shopping subscriptions could register.
+const fsChoreCk=(wk)=>`choreChecks/${wk}`;
 const fsProjects=()=>`projects/list`;
 const fsShopping=()=>`shopping/list`;
 
@@ -1136,42 +1139,41 @@ function subscribeAll(){
   subscribeGlobals();
 }
 
+// Each subscription wrapped in its own try so a single bad path/permission
+// error can't prevent the others from registering. Verbose seed logging so
+// problems are easy to spot in DevTools.
 function subscribeGlobals(){
-  // Chores
-  onSnapshot(doc(db, fsChores()), async snap => {
-    if(!snap.exists()){
-      try{ await setDoc(doc(db, fsChores()), {chores: DEFAULT_CHORES}); }
-      catch(e){ console.error('seed chores', e); }
-      return;
+  let _globalsBooted = false;
+  if(_globalsBooted) return; _globalsBooted = true;
+
+  function safeSub(label, pathFn, onData, seedFn){
+    try {
+      const ref = doc(db, pathFn());
+      onSnapshot(ref, async snap => {
+        if(!snap.exists()){
+          if(seedFn){
+            console.log(`[seed] ${label} doc missing — seeding defaults…`);
+            try{
+              await setDoc(ref, seedFn());
+              console.log(`[seed] ${label} seeded OK.`);
+            }catch(e){
+              console.error(`[seed] ${label} write FAILED:`, e);
+            }
+          }
+          return;
+        }
+        try { onData(snap); } catch(e){ console.error(`[sub] ${label} handler error:`, e); }
+      }, e => console.error(`[sub] ${label} snapshot error:`, e));
+      console.log(`[sub] ${label} listener registered at ${pathFn()}`);
+    } catch(e){
+      console.error(`[sub] ${label} REGISTRATION failed (likely bad path):`, e);
     }
-    chores = {chores: snap.data().chores || []};
-    refreshView();
-  }, e => console.error(e));
-  // Chore checks (this week)
-  onSnapshot(doc(db, fsChoreCk(weekK())), snap => {
-    choreChecks[weekK()] = snap.exists() ? snap.data() : {};
-    refreshView();
-  }, e => console.error(e));
-  // Projects
-  onSnapshot(doc(db, fsProjects()), async snap => {
-    if(!snap.exists()){
-      try{ await setDoc(doc(db, fsProjects()), {projects: []}); }
-      catch(e){ console.error('seed projects', e); }
-      return;
-    }
-    projects = {projects: snap.data().projects || []};
-    refreshView();
-  }, e => console.error(e));
-  // Shopping
-  onSnapshot(doc(db, fsShopping()), async snap => {
-    if(!snap.exists()){
-      try{ await setDoc(doc(db, fsShopping()), {items: []}); }
-      catch(e){ console.error('seed shopping', e); }
-      return;
-    }
-    shopping = {items: snap.data().items || []};
-    refreshView();
-  }, e => console.error(e));
+  }
+
+  safeSub('chores',     fsChores,                  snap => { chores   = {chores:  snap.data().chores  || []}; refreshView(); }, () => ({chores: DEFAULT_CHORES}));
+  safeSub('choreChecks',() => fsChoreCk(weekK()),  snap => { choreChecks[weekK()] = snap.data(); refreshView(); }, null);
+  safeSub('projects',   fsProjects,                snap => { projects = {projects: snap.data().projects || []}; refreshView(); }, () => ({projects: []}));
+  safeSub('shopping',   fsShopping,                snap => { shopping = {items:    snap.data().items   || []}; refreshView(); }, () => ({items: []}));
 }
 
 // === Subscribe to config/taskDefs; seed defaults on first run if missing ===
