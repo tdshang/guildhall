@@ -680,10 +680,18 @@ function weekEarnings(pid){
   const daily = dailyCanonicalTasks(pid);
   const total = daily.length * 7;
   if(!total) return {done:0, total:0, pct:0, earned:0};
+  const pt = paidThrough[pid] || 0;
   let done = 0;
   weekDates().forEach(d => {
     const checks = state[pid]?.today?.[d] || {};
-    daily.forEach(t => { if(checks[t.id]) done++; });
+    daily.forEach(t => {
+      const c = checks[t.id];
+      if(!c) return;
+      // Only count check completions made after the most recent Mark as Paid
+      // for this earner. Legacy `true` checks (no .at) count when never paid.
+      const at = (typeof c === 'object' && c.at) ? c.at : 0;
+      if(pt === 0 || at > pt) done++;
+    });
   });
   const pct = done / total;
   return {done, total, pct, earned: Math.round(pct * WEEK_CAP * 100) / 100};
@@ -694,9 +702,11 @@ function weekEarnings(pid){
 // Awarded on check, rescinded on uncheck. Amount captured at check time.
 const bonusData = {};  // {[pid]: {[weekKey]: {[bonusKey]: amount}}}
 const paidHistory = {};  // {[pid]: [{date, amount, paidAt, paidBy}, ...] sorted desc by paidAt}
-const fsBonus    = (pid, wk)   => `earnings/${pid}/bonus/${wk}`;
-const fsPayHist  = (pid, date) => `earnings/${pid}/history/${date}`;
-const fsPayHistCol = (pid)     => `earnings/${pid}/history`;
+const paidThrough = {};  // {[pid]: ts} — cutoff for what counts toward base
+const fsBonus     = (pid, wk)   => `earnings/${pid}/bonus/${wk}`;
+const fsPayHist   = (pid, id)   => `earnings/${pid}/history/${id}`;
+const fsPayHistCol = (pid)      => `earnings/${pid}/history`;
+const fsEarnState = (pid)       => `earnings/${pid}`;
 const bonusKeyPersonal = (sc, dateKey, tid) => `${sc}__${dateKey}__${tid}`;
 const bonusKeyProject  = (projId, tid) => `proj__${projId}__${tid}`;
 
@@ -739,25 +749,29 @@ async function markAsPaid(pid){
   const bonus = weekBonus(pid);
   const total = Math.round((we.earned + bonus) * 100) / 100;
   if(total <= 0){ alert(`${PEOPLE_META[pid]?.name||pid} has no earnings to pay out yet.`); return; }
-  if(!confirm(`Pay ${PEOPLE_META[pid]?.name||pid} $${total.toFixed(2)}? This zeros the bonus and logs the payment.`)) return;
+  if(!confirm(`Pay ${PEOPLE_META[pid]?.name||pid} $${total.toFixed(2)}? This zeros their earnings display and logs the payment.`)) return;
+  const now = Date.now();
   const date = todayK();
   const wk = weekK();
+  // Unique history doc ID — date alone would overwrite prior same-day payouts.
+  const histId = `${date}_${now}`;
+  const histPayload = {
+    amount: total,
+    base: we.earned,
+    bonus,
+    paidAt: now,
+    paidBy: currentActor()
+  };
   syncSt('syncing');
   try {
-    await setDoc(doc(db, fsPayHist(pid, date)), {
-      amount: total,
-      base: we.earned,
-      bonus,
-      paidAt: Date.now(),
-      paidBy: currentActor()
-    });
-    // deleteDoc removes the bonus doc outright — setDoc({}) was being
-    // observed leaving the bonus row showing the pre-paid amount (likely
-    // a no-op or stale-snapshot race). Hard-deleting forces the snapshot
-    // listener to fire with snap.exists()===false, and we also clear the
-    // local mirror + force a render here so the UI is independent of it.
+    await setDoc(doc(db, fsPayHist(pid, histId)), histPayload);
     await deleteDoc(doc(db, fsBonus(pid, wk)));
+    await setDoc(doc(db, fsEarnState(pid)), {paidThrough: now});
+    // Local mirrors — keep UI consistent regardless of snapshot timing.
     if(bonusData[pid]) delete bonusData[pid][wk];
+    paidThrough[pid] = now;
+    paidHistory[pid] = paidHistory[pid] || [];
+    paidHistory[pid].unshift({date: histId, ...histPayload});
     syncSt('synced');
     refreshView();
   } catch(e){
@@ -1285,7 +1299,7 @@ function subscribeAll(){
           if(curP===pid||curP==='command') refreshView();
         }, e => console.error('bonus sub', e));
       } catch(e){ console.error('bonus sub register', e); }
-      // Paid-history collection (one doc per payout, keyed by date)
+      // Paid-history collection (one doc per payout, keyed by `${date}_${ts}`)
       try {
         onSnapshot(collection(db, fsPayHistCol(pid)), snap => {
           const arr = [];
@@ -1295,6 +1309,13 @@ function subscribeAll(){
           if(curP==='command') refreshView();
         }, e => console.error('history sub', pid, e));
       } catch(e){ console.error('history sub register', e); }
+      // Earnings-state doc — `paidThrough` cutoff for base earnings
+      try {
+        onSnapshot(doc(db, fsEarnState(pid)), snap => {
+          paidThrough[pid] = (snap.exists() && snap.data().paidThrough) || 0;
+          if(curP===pid||curP==='command') refreshView();
+        }, e => console.error('earn state sub', pid, e));
+      } catch(e){ console.error('earn state sub register', e); }
     }
     onSnapshot(doc(db,fsNote(pid)),snap=>{ notes[pid]=snap.exists()?(snap.data().text||''):''; if(curP===pid||curP==='command') refreshView(); });
     ['today','week','month'].forEach(sc=>{
