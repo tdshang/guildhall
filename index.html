@@ -306,7 +306,7 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 
 <script type="module">
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:"AIzaSyDQa6TYIjHwtB-hjO5Z1BPCdC5skDtP9z8",
@@ -751,12 +751,13 @@ async function markAsPaid(pid){
       paidAt: Date.now(),
       paidBy: currentActor()
     });
-    await setDoc(doc(db, fsBonus(pid, wk)), {});
-    // Clear local mirror after writes succeed and force a re-render —
-    // don't depend on the bonus-doc snapshot listener firing in time
-    // (the history listener can refresh first, reading stale bonus).
-    bonusData[pid] = bonusData[pid] || {};
-    bonusData[pid][wk] = {};
+    // deleteDoc removes the bonus doc outright — setDoc({}) was being
+    // observed leaving the bonus row showing the pre-paid amount (likely
+    // a no-op or stale-snapshot race). Hard-deleting forces the snapshot
+    // listener to fire with snap.exists()===false, and we also clear the
+    // local mirror + force a render here so the UI is independent of it.
+    await deleteDoc(doc(db, fsBonus(pid, wk)));
+    if(bonusData[pid]) delete bonusData[pid][wk];
     syncSt('synced');
     refreshView();
   } catch(e){
