@@ -194,6 +194,10 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 .chore-item:hover .chore-edit-btn{opacity:0.7}
 .chore-edit-btn:hover{opacity:1!important;color:var(--gold)}
 .chore-edit-btn.del:hover{color:var(--red)}
+.task-card .chore-edit-btn{opacity:0.9;font-size:15px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;margin-left:2px}
+.task-card .chore-edit-btn:hover{background:var(--gold-dim);border-color:var(--gold)}
+.task-card .chore-edit-btn.del{color:var(--red);opacity:0.85}
+.task-card .chore-edit-btn.del:hover{background:var(--red-soft);border-color:rgba(192,57,43,0.5)}
 .chore-week-row{display:flex;gap:3px;flex-shrink:0}
 .chore-day-cell{width:26px;height:26px;border-radius:5px;border:1px solid var(--border-hi);background:transparent;color:var(--text-dim);font-family:'Cinzel',serif;font-size:9px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
 .chore-day-cell.today{border-color:var(--gold);color:var(--gold)}
@@ -302,7 +306,7 @@ body{font-family:'Crimson Text',Georgia,serif;background:var(--bg);color:var(--t
 
 <script type="module">
 import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey:"AIzaSyDQa6TYIjHwtB-hjO5Z1BPCdC5skDtP9z8",
@@ -605,12 +609,16 @@ const choreChecks={};  // {[weekKey]: {[choreId]: {[dayKey]: {at,by}}}}
 let _formOpen = null;  // 'addChore' | 'addProject' | 'addShop' | null
 let _editing = null;   // {kind: 'chore'|'project'|'taskDef'|'addTask', id|tid, pid?, sc?, group?} | null
 let _editMode = false; // step 12 — show task-def add/edit/delete affordances
+let _pendingDelete = null; // {kind:'taskDef', pid, sc, tid} | null — inline delete confirmation
 
 function ensure(p,sc,k){ if(!state[p])state[p]={}; if(!state[p][sc])state[p][sc]={}; if(!state[p][sc][k])state[p][sc][k]={}; }
 
 const fsCheck =(p,sc,k)=>`checks/${p}/${sc}/${k}`;
 const fsNote  =(p)=>`notes/${p}`;
-const fsCustom=(p,sc)=>`custom/${p}/${sc}`;
+// Was `custom/${p}/${sc}` — 3 segments, which Firestore rejects as a doc ref.
+// `doc()` threw inside subscribeAll, aborting every later subscription on the
+// first pid (tina) and leaving everyone else's checks unable to load on reload.
+const fsCustom=(p,sc)=>`custom/${p}_${sc}`;
 const fsHard  =(p)=>`hardDay/${p}`;
 const fsChores=()=>`chores/recurring`;
 // 2-segment path (collection/document) — Firestore document refs must be even length.
@@ -685,7 +693,10 @@ function weekEarnings(pid){
 // Stored at earnings/{pid}/bonus/{weekKey} as {[bonusKey]: amount}.
 // Awarded on check, rescinded on uncheck. Amount captured at check time.
 const bonusData = {};  // {[pid]: {[weekKey]: {[bonusKey]: amount}}}
-const fsBonus = (pid, wk) => `earnings/${pid}/bonus/${wk}`;
+const paidHistory = {};  // {[pid]: [{date, amount, paidAt, paidBy}, ...] sorted desc by paidAt}
+const fsBonus    = (pid, wk)   => `earnings/${pid}/bonus/${wk}`;
+const fsPayHist  = (pid, date) => `earnings/${pid}/history/${date}`;
+const fsPayHistCol = (pid)     => `earnings/${pid}/history`;
 const bonusKeyPersonal = (sc, dateKey, tid) => `${sc}__${dateKey}__${tid}`;
 const bonusKeyProject  = (projId, tid) => `proj__${projId}__${tid}`;
 
@@ -716,6 +727,38 @@ async function rescindBonus(pid, key){
   delete bonusData[pid][wk][key];
   try{ await setDoc(doc(db, fsBonus(pid, wk)), bonusData[pid][wk]); }
   catch(e){ console.error('rescind bonus', e); }
+}
+
+// === Mark as Paid (Tina action from Command Center) ===
+// Records the payout at earnings/{pid}/history/{date}, then zeros the current
+// week's bonus doc. Base earnings already reset automatically on Monday (the
+// week-key path changes), so we only clear bonus here.
+async function markAsPaid(pid){
+  if(!EARNERS.includes(pid)) return;
+  const we = weekEarnings(pid);
+  const bonus = weekBonus(pid);
+  const total = Math.round((we.earned + bonus) * 100) / 100;
+  if(total <= 0){ alert(`${PEOPLE_META[pid]?.name||pid} has no earnings to pay out yet.`); return; }
+  if(!confirm(`Pay ${PEOPLE_META[pid]?.name||pid} $${total.toFixed(2)}? This zeros the bonus and logs the payment.`)) return;
+  const date = todayK();
+  syncSt('syncing');
+  try {
+    await setDoc(doc(db, fsPayHist(pid, date)), {
+      amount: total,
+      base: we.earned,
+      bonus,
+      paidAt: Date.now(),
+      paidBy: currentActor()
+    });
+    const wk = weekK();
+    bonusData[pid] = bonusData[pid] || {};
+    bonusData[pid][wk] = {};
+    await setDoc(doc(db, fsBonus(pid, wk)), {});
+    syncSt('synced');
+  } catch(e){
+    console.error('markAsPaid', e); syncSt('error');
+    alert('Could not record payment. Check the connection and try again.');
+  }
 }
 
 // Find a task definition by id across canonical + custom for a (pid, sc).
@@ -1004,18 +1047,26 @@ async function editTaskDef(pid, sc, tid, patch){
   if(!TASK_DEFS?.[pid]) return;
   const defs = TASK_DEFS[pid];
   if(sc === 'today'){
+    let srcGroup = null, target = null;
     for(const g of (defs.today||[])){
       const t = (g.tasks||[]).find(t => t.id === tid);
-      if(t){
-        if('text' in patch) t.text = patch.text;
-        if('rollover' in patch){
-          if(patch.rollover) t.rollover = true; else delete t.rollover;
-        }
-        if('note' in patch){
-          if(patch.note && patch.note.trim()) t.note = patch.note.trim(); else delete t.note;
-        }
-        applyBonusPatch(t, patch);
-        break;
+      if(t){ srcGroup = g; target = t; break; }
+    }
+    if(!target) return;
+    if('text' in patch) target.text = patch.text;
+    if('rollover' in patch){
+      if(patch.rollover) target.rollover = true; else delete target.rollover;
+    }
+    if('note' in patch){
+      if(patch.note && patch.note.trim()) target.note = patch.note.trim(); else delete target.note;
+    }
+    applyBonusPatch(target, patch);
+    if('group' in patch && patch.group && patch.group !== srcGroup.group){
+      const dest = (defs.today||[]).find(g => g.group === patch.group);
+      if(dest){
+        srcGroup.tasks = (srcGroup.tasks||[]).filter(t => t.id !== tid);
+        dest.tasks = dest.tasks || [];
+        dest.tasks.push(target);
       }
     }
   } else {
@@ -1030,7 +1081,6 @@ async function editTaskDef(pid, sc, tid, patch){
   await persistTaskDefs();
 }
 async function deleteTaskDef(pid, sc, tid){
-  if(!confirm('Delete this task permanently from the defaults?')) return;
   if(!TASK_DEFS?.[pid]) return;
   const defs = TASK_DEFS[pid];
   if(sc === 'today'){
@@ -1230,6 +1280,16 @@ function subscribeAll(){
           if(curP===pid||curP==='command') refreshView();
         }, e => console.error('bonus sub', e));
       } catch(e){ console.error('bonus sub register', e); }
+      // Paid-history collection (one doc per payout, keyed by date)
+      try {
+        onSnapshot(collection(db, fsPayHistCol(pid)), snap => {
+          const arr = [];
+          snap.forEach(d => arr.push({date: d.id, ...d.data()}));
+          arr.sort((a,b) => (b.paidAt||0) - (a.paidAt||0));
+          paidHistory[pid] = arr;
+          if(curP==='command') refreshView();
+        }, e => console.error('history sub', pid, e));
+      } catch(e){ console.error('history sub register', e); }
     }
     onSnapshot(doc(db,fsNote(pid)),snap=>{ notes[pid]=snap.exists()?(snap.data().text||''):''; if(curP===pid||curP==='command') refreshView(); });
     ['today','week','month'].forEach(sc=>{
@@ -1311,12 +1371,28 @@ function fmtTime(ts){
   const d = new Date(ts), h = d.getHours(), m = String(d.getMinutes()).padStart(2,'0');
   const hr = ((h+11)%12)+1; return `${hr}:${m}${h<12?'a':'p'}`;
 }
+function fmtPaidDate(v){
+  if(v == null) return '';
+  let d;
+  if(typeof v === 'number') d = new Date(v);
+  else if(typeof v === 'string' && /^\d{4}-\d{1,2}-\d{1,2}$/.test(v)){
+    const [y,mo,da] = v.split('-').map(Number); d = new Date(y, mo-1, da);
+  } else d = new Date(v);
+  if(isNaN(d.getTime())) return '';
+  const mos=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${mos[d.getMonth()]} ${d.getDate()}`;
+}
 
 function taskCard(p, sc, task, rolls, canRemove, editable){
   // In edit mode, if this task is the one being edited, render inline form instead.
   if(editable && _editing && _editing.kind === 'taskDef'
      && _editing.pid === p && _editing.sc === sc && _editing.tid === task.id){
     return taskEditForm(p, sc, task);
+  }
+  // Inline delete confirmation
+  if(editable && _pendingDelete && _pendingDelete.kind === 'taskDef'
+     && _pendingDelete.pid === p && _pendingDelete.sc === sc && _pendingDelete.tid === task.id){
+    return taskDeleteConfirm(p, sc, task);
   }
   const chk = getChecked(p,sc), checkedVal = chk[task.id], done = !!checkedVal;
   const roll = rolls.has(task.id);
@@ -1333,8 +1409,8 @@ function taskCard(p, sc, task, rolls, canRemove, editable){
   const rmBtn = canRemove
     ? `<button class="remove-btn" onclick="event.stopPropagation();window._rm('${p}','${sc}','${task.id}')" title="Remove">✕</button>` : '';
   const editBtns = editable ? `
-      <button class="chore-edit-btn" onclick="event.stopPropagation();window._editTask('${p}','${sc}','${task.id}')" title="Edit task">⋯</button>
-      <button class="chore-edit-btn del" onclick="event.stopPropagation();window._delTask('${p}','${sc}','${task.id}')" title="Delete task">✕</button>` : '';
+      <button class="chore-edit-btn" onclick="event.stopPropagation();window._editTask('${p}','${sc}','${task.id}')" title="Edit task" aria-label="Edit task">✏</button>
+      <button class="chore-edit-btn del" onclick="event.stopPropagation();window._delTask('${p}','${sc}','${task.id}')" title="Delete task" aria-label="Delete task">🗑</button>` : '';
   let meta = '';
   if(done && typeof checkedVal === 'object'){
     const by = checkedVal.by && PEOPLE_META[checkedVal.by] ? PEOPLE_META[checkedVal.by].name : (checkedVal.by||'');
@@ -1366,6 +1442,11 @@ function bonusFieldHtml(pid, idAttr, val){
   </div>`;
 }
 
+function findTodayGroupForTask(pid, tid){
+  const today = TASK_DEFS?.[pid]?.today || [];
+  return today.find(g => (g.tasks||[]).some(t => t.id === tid))?.group || null;
+}
+
 function taskEditForm(pid, sc, task){
   const fs = _formScratch;
   const text = (fs.tdText !== undefined) ? fs.tdText : (task.text||'');
@@ -1373,10 +1454,19 @@ function taskEditForm(pid, sc, task){
   const rollover = (fs.tdRoll !== undefined) ? fs.tdRoll : !!task.rollover;
   const day = (fs.tdDay !== undefined) ? fs.tdDay : (task.day||'');
   const bonus = (fs.tdBonus !== undefined) ? fs.tdBonus : (task.bonus != null ? task.bonus : '');
+  const currentGroup = findTodayGroupForTask(pid, task.id) || '';
+  const groupVal = (fs.tdGroup !== undefined) ? fs.tdGroup : currentGroup;
+  const groupNames = (TASK_DEFS?.[pid]?.today || []).map(g => g.group);
   return `<div class="edit-form show" style="margin-bottom:5px">
     <div class="edit-form-title">Edit task</div>
     <div class="edit-row"><input class="edit-input" id="edTaskText" placeholder="Task text" value="${escAttr(text)}"></div>
     <div class="edit-row"><textarea class="edit-input" id="edTaskNote" placeholder="Optional context note (visible on tap)" style="min-height:50px;resize:vertical">${escHtml(note)}</textarea></div>
+    ${sc==='today' && groupNames.length ? `<div class="edit-row" style="align-items:center;gap:8px">
+      <span class="field-lbl" style="width:auto;margin:0">Group</span>
+      <select class="edit-select" id="edTaskGroup" style="flex:1">
+        ${groupNames.map(g => `<option value="${escAttr(g)}"${groupVal===g?' selected':''}>${escHtml(g)}</option>`).join('')}
+      </select>
+    </div>` : ''}
     ${sc==='week' ? `<div class="edit-row"><select class="edit-select" id="edTaskDay">
       <option value="">No specific day</option>
       ${DAYS.map(d => `<option value="${d.full.slice(0,3)}"${day===d.full.slice(0,3)?' selected':''}>${d.full}</option>`).join('')}
@@ -1390,6 +1480,16 @@ function taskEditForm(pid, sc, task){
       <button class="edit-btn" onclick="window._submitTaskDef()">Save</button>
       <button class="edit-btn subtle" onclick="window._cancelTaskDef()">Cancel</button>
       <button class="edit-btn danger" style="margin-left:auto" onclick="window._delTask('${pid}','${sc}','${task.id}')">Delete</button>
+    </div>
+  </div>`;
+}
+
+function taskDeleteConfirm(pid, sc, task){
+  return `<div class="task-card" style="border-color:rgba(192,57,43,0.5);background:rgba(231,76,60,0.08);margin-bottom:5px">
+    <div class="task-inner" style="flex-wrap:wrap;gap:8px">
+      <div class="task-text" style="color:var(--text-dim);flex:1;min-width:0">Delete <strong style="color:var(--text)">"${escHtml(task.text)}"</strong>? This removes it from the canonical list for everyone.</div>
+      <button class="edit-btn danger" onclick="event.stopPropagation();window._confirmDelTask()">Yes, delete</button>
+      <button class="edit-btn subtle" onclick="event.stopPropagation();window._cancelDelete()">Cancel</button>
     </div>
   </div>`;
 }
@@ -1751,6 +1851,7 @@ function renderCommand(){
     const total = Math.round((we.earned + bonus) * 100) / 100;
     const px = PEOPLE[pid];
     const pct = Math.round(we.pct * 100);
+    const disabled = total <= 0 ? 'disabled' : '';
     T += `<div class="slip-item" style="cursor:pointer;background:linear-gradient(135deg,${px.soft},transparent);border-color:${px.glow}" onclick="window._goto('${pid}')">
       <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px">
         <strong style="color:${px.color};flex:1">${px.name}</strong>
@@ -1762,9 +1863,29 @@ function renderCommand(){
         <span>Bonus</span><span></span><span style="color:var(--text)">$${bonus.toFixed(2)}</span>
         <span style="color:var(--gold)">Total</span><span></span><span style="color:var(--gold);font-weight:700">$${total.toFixed(2)}</span>
       </div>
+      <button class="edit-btn" style="margin-top:10px;width:100%;${total<=0?'opacity:0.5;cursor:not-allowed':''}" onclick="event.stopPropagation();window._markPaid('${pid}')" ${disabled}>Mark as Paid · $${total.toFixed(2)}</button>
     </div>`;
   });
-  T += `</div><div class="gold-div"></div>`;
+  T += `</div>`;
+
+  // Paid history log — recent payouts across both earners
+  const allPays = [];
+  EARNERS.forEach(pid => (paidHistory[pid]||[]).forEach(p => allPays.push({pid, ...p})));
+  allPays.sort((a,b) => (b.paidAt||0) - (a.paidAt||0));
+  if(allPays.length){
+    T += secH('Paid History');
+    allPays.slice(0, 10).forEach(p => {
+      const px = PEOPLE_META[p.pid];
+      const dateStr = fmtPaidDate(p.paidAt || p.date);
+      T += `<div class="slip-item" style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <strong style="color:${px.color}">${px.name}</strong>
+        <span style="color:var(--text-dim)">paid</span>
+        <span style="color:var(--gold);font-weight:700">$${Number(p.amount||0).toFixed(2)}</span>
+        <span style="color:var(--text-dim);margin-left:auto;font-family:'Cinzel',serif;font-size:11px;letter-spacing:0.06em">${escHtml(dateStr)}</span>
+      </div>`;
+    });
+  }
+  T += `<div class="gold-div"></div>`;
 
   T+=secH('Active Notes from Household');
   let anyN=false;
@@ -2311,6 +2432,7 @@ window._submitShop = async () => {
   await addShopItem(name, cat, qty);
   _formOpen = null; _formScratch = {};
 };
+window._markPaid = (pid) => markAsPaid(pid);
 window._togLow = (id) => toggleShopLow(id);
 window._setQty = (id, q) => updateShopQty(id, q);
 window._rmShop = (id) => removeShopItem(id);
@@ -2318,12 +2440,12 @@ window._rmShop = (id) => removeShopItem(id);
 // === Task-def editor handlers (step 12) ===
 window._toggleEditMode = () => {
   _editMode = !_editMode;
-  _editing = null; _formOpen = null; _formScratch = {};
+  _editing = null; _formOpen = null; _formScratch = {}; _pendingDelete = null;
   renderCurrent();
 };
 window._editTask = (pid, sc, tid) => {
   _editing = {kind:'taskDef', pid, sc, tid};
-  _formOpen = null; _formScratch = {};
+  _formOpen = null; _formScratch = {}; _pendingDelete = null;
   renderCurrent();
 };
 window._cancelTaskDef = () => { _editing = null; _formScratch = {}; renderCurrent(); };
@@ -2335,6 +2457,8 @@ window._submitTaskDef = async () => {
   const patch = {text: text.trim(), note};
   if(_editing.sc === 'today'){
     patch.rollover = document.getElementById('edTaskRoll')?.checked || false;
+    const groupEl = document.getElementById('edTaskGroup');
+    if(groupEl) patch.group = groupEl.value || '';
   }
   if(_editing.sc === 'week'){
     patch.day = document.getElementById('edTaskDay')?.value || '';
@@ -2346,9 +2470,17 @@ window._submitTaskDef = async () => {
   _editing = null; _formScratch = {};
   await editTaskDef(pid, sc, tid, patch);
 };
-window._delTask = async (pid, sc, tid) => {
+window._delTask = (pid, sc, tid) => {
+  _pendingDelete = {kind:'taskDef', pid, sc, tid};
+  _editing = null; _formScratch = {};
+  renderCurrent();
+};
+window._cancelDelete = () => { _pendingDelete = null; renderCurrent(); };
+window._confirmDelTask = async () => {
+  if(!_pendingDelete || _pendingDelete.kind !== 'taskDef') return;
+  const {pid, sc, tid} = _pendingDelete;
+  _pendingDelete = null;
   await deleteTaskDef(pid, sc, tid);
-  if(_editing && _editing.tid === tid){ _editing = null; _formScratch = {}; renderCurrent(); }
 };
 window._addToGroup = (pid, sc, groupName) => {
   _editing = {kind:'addTask', pid, sc, group: groupName || null};
