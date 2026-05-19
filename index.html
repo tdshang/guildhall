@@ -741,6 +741,7 @@ async function markAsPaid(pid){
   if(total <= 0){ alert(`${PEOPLE_META[pid]?.name||pid} has no earnings to pay out yet.`); return; }
   if(!confirm(`Pay ${PEOPLE_META[pid]?.name||pid} $${total.toFixed(2)}? This zeros the bonus and logs the payment.`)) return;
   const date = todayK();
+  const wk = weekK();
   syncSt('syncing');
   try {
     await setDoc(doc(db, fsPayHist(pid, date)), {
@@ -750,11 +751,14 @@ async function markAsPaid(pid){
       paidAt: Date.now(),
       paidBy: currentActor()
     });
-    const wk = weekK();
+    await setDoc(doc(db, fsBonus(pid, wk)), {});
+    // Clear local mirror after writes succeed and force a re-render —
+    // don't depend on the bonus-doc snapshot listener firing in time
+    // (the history listener can refresh first, reading stale bonus).
     bonusData[pid] = bonusData[pid] || {};
     bonusData[pid][wk] = {};
-    await setDoc(doc(db, fsBonus(pid, wk)), {});
     syncSt('synced');
+    refreshView();
   } catch(e){
     console.error('markAsPaid', e); syncSt('error');
     alert('Could not record payment. Check the connection and try again.');
